@@ -1,0 +1,133 @@
+import { describe, expect, it } from "vitest";
+import { parseCliConfig } from "../src/config.js";
+
+describe("parseCliConfig", () => {
+  const referenceDate = new Date("2026-03-31T12:00:00Z");
+  const parse = (argv: string[]) => parseCliConfig(argv, referenceDate);
+
+  it("defaults to 1 year and threshold defaults", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.periodDays).toBe(365);
+    expect(config.buyThreshold).toBe(55);
+    expect(config.sellThreshold).toBe(45);
+  });
+
+  it("allows buy threshold to be lower than sell threshold", () => {
+    const config = parse(["node", "cli", "--buy-threshold", "40", "--sell-threshold", "45"]);
+    expect(config.buyThreshold).toBe(40);
+    expect(config.sellThreshold).toBe(45);
+  });
+
+  it("switches to single mode when symbol is provided", () => {
+    const config = parse(["node", "cli", "--symbol", "aapl"]);
+    expect(config.mode).toBe("single");
+    expect(config.symbol).toBe("AAPL");
+  });
+
+  it("parses verbose flag", () => {
+    const config = parse(["node", "cli", "--verbose"]);
+    expect(config.verbose).toBe(true);
+  });
+
+  it("defaults verbose to false", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.verbose).toBe(false);
+  });
+
+  it("parses short verbose flag -v", () => {
+    const config = parse(["node", "cli", "-v"]);
+    expect(config.verbose).toBe(true);
+  });
+
+  it("defaults price provider to hybrid", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.priceProvider).toBe("hybrid");
+  });
+
+  it("accepts price provider option", () => {
+    const config = parse(["node", "cli", "--price-provider", "yahoo"]);
+    expect(config.priceProvider).toBe("yahoo");
+  });
+
+  it("rejects invalid price provider", () => {
+    expect(() => parse(["node", "cli", "--price-provider", "invalid"])).toThrow(
+      "--price-provider must be one of: yahoo, tradingview, hybrid"
+    );
+  });
+
+  it("accepts all valid price providers", () => {
+    for (const provider of ["yahoo", "tradingview", "hybrid"]) {
+      const config = parse(["node", "cli", "--price-provider", provider]);
+      expect(config.priceProvider).toBe(provider);
+    }
+  });
+
+  // Time format tests
+  it("parses time format: plain number as days", () => {
+    const config = parse(["node", "cli", "--time", "365"]);
+    expect(config.periodDays).toBe(365);
+  });
+
+  it("parses time format: days (d)", () => {
+    const config = parse(["node", "cli", "--time", "7d"]);
+    expect(config.periodDays).toBe(7);
+  });
+
+  it("parses time format: weeks (w)", () => {
+    const config = parse(["node", "cli", "--time", "52w"]);
+    expect(config.periodDays).toBe(364);
+  });
+
+  it("parses time format: years (y)", () => {
+    const config = parse(["node", "cli", "--time", "2y"]);
+    expect(config.periodDays).toBe(730);
+  });
+
+  it("parses time format: months (m)", () => {
+    const config = parse(["node", "cli", "--time", "2m"]);
+    expect(config.periodDays).toBe(59);
+  });
+
+  it("parses time format: case insensitive (uppercase D)", () => {
+    const config = parse(["node", "cli", "--time", "7D"]);
+    expect(config.periodDays).toBe(7);
+  });
+
+  it("parses time format: case insensitive (uppercase W)", () => {
+    const config = parse(["node", "cli", "--time", "52W"]);
+    expect(config.periodDays).toBe(364);
+  });
+
+  it("parses time format: case insensitive (uppercase Y)", () => {
+    const config = parse(["node", "cli", "--time", "2Y"]);
+    expect(config.periodDays).toBe(730);
+  });
+
+  it("parses time format: case insensitive (uppercase M)", () => {
+    const config = parse(["node", "cli", "--time", "2M"]);
+    expect(config.periodDays).toBe(59);
+  });
+
+  it("uses calendar logic for leap year transitions", () => {
+    const leapDate = new Date("2024-02-29T00:00:00Z");
+    const config = parseCliConfig(["node", "cli", "--time", "1y"], leapDate);
+    expect(config.periodDays).toBe(366);
+  });
+
+  it("rejects invalid time format", () => {
+    expect(() => parse(["node", "cli", "--time", "7x"])).toThrow("Invalid time format");
+  });
+
+  it("rejects invalid time format: negative number", () => {
+    expect(() => parse(["node", "cli", "--time", "-5d"])).toThrow("Invalid time format");
+  });
+
+  it("rejects invalid time format: no number", () => {
+    expect(() => parse(["node", "cli", "--time", "abc"])).toThrow("Invalid time format");
+  });
+
+  it("defaults mode to portfolio when symbol is not provided", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.mode).toBe("portfolio");
+  });
+});

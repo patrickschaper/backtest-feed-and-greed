@@ -1,0 +1,46 @@
+# Dependencies
+node_modules
+package-lock.json
+yarn.lock
+
+# Build output
+dist
+*.tsbuildinfo
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage
+.nyc_output
+
+# IDE and Editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-workspace
+*.sublime-project
+.atom
+.project
+.classpath
+.c9
+.iml
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+*.log
+
+# Cache
+.eslintcache
+.npm
+.yarn
+
