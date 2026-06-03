@@ -297,8 +297,11 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const C_BUY_AND_HOLD = "\u001b[36m";
   const C_INDEX = "\u001b[90m";
 
+  const C_BUY_MARKER = "\u001b[32m"; // green
+  const C_SELL_MARKER = "\u001b[91m"; // red
+
   const legend = fearGreedCompressed
-    ? `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}, ${C_INDEX}Fear & Greed=grey${C_RESET} (right axis 0–100). ▲=buy  ▼=sell  CAGR = Compound Annual Growth Rate.`
+    ? `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}, ${C_INDEX}Fear & Greed=grey${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲=buy${C_RESET}  ${C_SELL_MARKER}▼=sell${C_RESET}  CAGR = Compound Annual Growth Rate.`
     : `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}. CAGR = Compound Annual Growth Rate.`;
 
   return [
