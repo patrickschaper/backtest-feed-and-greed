@@ -190,7 +190,7 @@ export function buildProgram(): Command {
       "Threshold search: greedy | coarse | single-expand | full",
       "greedy"
     )
-    .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 or 2)", "2")
+    .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 to 3)", "2")
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -209,8 +209,8 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
   }
 
   const maxThresholds = parseOptionalNumber(options.maxThresholds, "--max-thresholds") ?? 2;
-  if (!Number.isInteger(maxThresholds) || maxThresholds <= 0 || maxThresholds >= 3) {
-    throw new Error("--max-thresholds must be an integer greater than 0 and less than 3");
+  if (!Number.isInteger(maxThresholds) || maxThresholds <= 0 || maxThresholds > 3) {
+    throw new Error("--max-thresholds must be an integer between 1 and 3");
   }
 
   const buyThresholds = parseThresholds(options.buyThreshold, "--buy-threshold", [55]);

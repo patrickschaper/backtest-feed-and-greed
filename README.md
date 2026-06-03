@@ -7,7 +7,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
 - **Portfolio mode** (`--portfolio`): backtests all open Trading212 holdings weighted by capital allocation (requires `TRADING212_API_TOKEN`)
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
-- **Threshold optimizer** (always on): searches sets of 1–N buy × 1–N sell thresholds (N = `--max-thresholds`, 1 or 2, default 2) for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `greedy`) — multi-threaded across CPU cores (one left free), with a live progress spinner
+- **Threshold optimizer** (always on): searches sets of 1–N buy × 1–N sell thresholds (N = `--max-thresholds`, 1 to 3, default 2) for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `greedy`) — multi-threaded across CPU cores (one left free), with a live progress spinner
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
@@ -103,7 +103,7 @@ rather than a misleading ratio.
 
 Because the full integer 1–3 subset space is enormous (≈ 29.5 billion backtests), the
 search method is selectable via `--optimizer-strategy`, and the number of thresholds
-per side is capped via `--max-thresholds` (1 or 2, default 2):
+per side is capped via `--max-thresholds` (1 to 3, default 2):
 
 | Strategy        | What it does                                                                                            | Approx. cost |
 | --------------- | ------------------------------------------------------------------------------------------------------- | ------------ |

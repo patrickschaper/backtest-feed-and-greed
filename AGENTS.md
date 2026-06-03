@@ -96,7 +96,7 @@ Terminal output is rendered in this order:
 
 Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
 
-- Searches **sets of 1–N buy thresholds × 1–N sell thresholds** (including asymmetric counts, e.g. 1 buy + 2 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays. `N` is the per-side cap, set via `--max-thresholds` (integer, `0 < n < 3`, i.e. 1 or 2; default **2**). Direct callers of the optimizer that omit `maxThresholds` fall back to a cap of 3.
+- Searches **sets of 1–N buy thresholds × 1–N sell thresholds** (including asymmetric counts, e.g. 1 buy + 2 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays. `N` is the per-side cap, set via `--max-thresholds` (integer, `1 ≤ n ≤ 3`; default **2**). Direct callers of the optimizer that omit `maxThresholds` fall back to a cap of 3.
 - The search space is huge, so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **greedy**):
   - **greedy** (default): evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach the cap.
   - **single-expand**: same single-grid anchor, then a single ordered pass — add buy thresholds up to the cap (full 0–100 scan each), then sell thresholds up to the cap; anchor fixed.
