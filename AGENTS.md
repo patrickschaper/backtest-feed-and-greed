@@ -72,12 +72,13 @@ feat: add Delta row and update docs
 - Crossing signal on day `t` executes on day `t+1` to avoid lookahead bias.
 - Always sell on the final backtest day if still invested.
 - No fees/slippage modeling in v1.
+- **FX normalization (both modes):** every symbol's price series is converted into a single base currency (`--base-currency`, 3-letter code, default **USD**) before the timeline is built, so the backtest, Buy & Hold baseline, optimizer, and equity curves are all valued in comparable money. Conversion happens at the price level (`priceBase = priceNative / scale × rate`), so no downstream component needs currency awareness. See the FX normalization section below.
 
 ## Output structure
 
 Terminal output is rendered in this order:
 
-1. **Symbol table** — ticker, name, exchange, currency, source, then columns ordered: weight %, start capital, start price, end price, gain/loss % (green/red by sign), end capital. The `Total` row sums weight, start capital, the combined gain/loss % (start→end capital, green/red), and end capital. Omitted in portfolio mode with a single implicit symbol.
+1. **Symbol table** — header titled `Holdings (prices & capital in <BASE>; Currency = native listing currency)` when a base currency is set. Columns: ticker, name, exchange, currency (the **native listing** currency, e.g. `USD`/`GBp`), source, then ordered: weight %, start capital, start price, end price, gain/loss % (green/red by sign), end capital. Prices and capital are shown in the **base currency** (column headers carry a `(<BASE>)` suffix), so per-symbol gain/loss and end capital are FX-inclusive and internally consistent (`End Capital = Start Capital × endPriceBase/startPriceBase`). The `Total` row sums weight, start capital, the combined gain/loss % (start→end capital, green/red), and end capital; the Total End Capital equals the Buy & Hold final equity because both run on the converted prices. Omitted in portfolio mode with a single implicit symbol.
 2. **Mode / date range** — `Mode: symbols | portfolio` and `Date range: YYYY-MM-DD -> YYYY-MM-DD (N trading days)`
 3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; series drawn bottom → top (later series render on top where they overlap):
    - Fear & Greed Index (grey)
@@ -167,7 +168,7 @@ Price providers live in `src/data/providers/`. The orchestrator is `src/data/pri
 
 ### Price cache
 
-Fetched results are stored in `~/.cache/backtest-feed-and-greed/prices/YYYY-MM-DD/` (one JSON file per symbol + date-range key). The cache is valid for the entire current calendar day. Old date directories are automatically pruned at startup.
+Fetched results are stored in `~/.cache/backtest-feed-and-greed/prices/YYYY-MM-DD/` (one JSON file per symbol + date-range key). The cache is valid for the entire current calendar day. Old date directories are automatically pruned at startup. FX series reuse the same cache under a namespaced key (`FX:<NATIVE><BASE>=X`, provider `yahoo-fx`) so they can't collide with user-requested tickers.
 
 ### Error classification
 
@@ -184,6 +185,18 @@ TRADINGVIEW_SIGNATURE=your-tradingviewui_sign-cookie
 ```
 
 Retrieve these from browser DevTools → Application → Cookies on `tradingview.com`.
+
+## FX Normalization
+
+Implemented in `src/data/fxProvider.ts`; orchestrated in `app.ts` `run()` between price fetching and timeline construction.
+
+- **Goal:** value multi-currency portfolios in one comparable base currency (incl. currency P&L). Selected via `--base-currency <CUR>` (3-letter, default **USD**); applies in **both** symbols and portfolio mode.
+- **Rates:** daily FX from Yahoo FX pairs — `chart("<NATIVE><BASE>=X")` returns close = **base per native** (e.g. `USDEUR=X` close 0.86 ⇒ 0.86 EUR per 1 USD). `native === base` ⇒ implicit rate 1 (no fetch). One series is fetched per **distinct** non-base currency.
+- **Conversion:** `priceBase = (priceNative / scale) × rate`, where `rate` is forward-filled to each price date (most recent FX on/before that date, via binary search). **No future backfill** — price points with no FX rate on/before them are dropped (avoids lookahead). FX is fetched with a ~21-day pre-start pad so coverage exists at the timeline start.
+- **Minor units:** `normalizeCurrency()` maps subunit codes to their major code + a price `scale` (matched by exact provider form): `GBp`/`GBX` ⇒ GBP ÷100, `ZAc` ⇒ ZAR ÷100, `ILa` ⇒ ILS ÷100. Other plain 3-letter codes ⇒ scale 1. Unusable codes (`—`, non-3-letter) ⇒ `undefined`.
+- **Currency source:** symbol metadata (Yahoo `currency` / TradingView `currency_code`) is fetched **before** the timeline (reordered ahead of optimization) and reused for the holdings table. The provider used per symbol is already known from the price fetch.
+- **Skip-on-failure:** a symbol is dropped (with a warning) when its currency can't be resolved, its FX series fetch fails, or conversion yields no points. Weights are re-normalized over survivors; if none remain (or total weight ≤ 0) the run throws a clear error.
+- **Downstream:** because conversion happens at the price level before `buildTimeline`, the strategy backtest, Buy & Hold baseline, optimizer, and equity curves are all FX-normalized with no currency logic of their own.
 
 ### Environment variables
 

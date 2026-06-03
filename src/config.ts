@@ -15,6 +15,7 @@ export interface CliConfig {
   initialCash: number;
   optimizerStrategy: OptimizerStrategy;
   maxThresholds: number;
+  baseCurrency: string;
   verbose: boolean;
 }
 
@@ -28,6 +29,7 @@ interface RawCliConfig {
   initialCash?: string;
   optimizerStrategy?: string;
   maxThresholds?: string;
+  baseCurrency?: string;
   verbose?: boolean;
 }
 
@@ -191,6 +193,11 @@ export function buildProgram(): Command {
       "full"
     )
     .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 to 3)", "1")
+    .option(
+      "--base-currency <currency>",
+      "Base currency for FX normalization; all prices converted into it (e.g. USD, EUR)",
+      "USD"
+    )
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -211,6 +218,11 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
   const maxThresholds = parseOptionalNumber(options.maxThresholds, "--max-thresholds") ?? 1;
   if (!Number.isInteger(maxThresholds) || maxThresholds <= 0 || maxThresholds > 3) {
     throw new Error("--max-thresholds must be an integer between 1 and 3");
+  }
+
+  const baseCurrency = (options.baseCurrency ?? "USD").trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(baseCurrency)) {
+    throw new Error("--base-currency must be a 3-letter currency code (e.g. EUR, USD)");
   }
 
   const buyThresholds = parseThresholds(options.buyThreshold, "--buy-threshold", [55]);
@@ -252,6 +264,7 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     initialCash,
     optimizerStrategy: options.optimizerStrategy as OptimizerStrategy,
     maxThresholds,
+    baseCurrency,
     verbose: Boolean(options.verbose)
   };
 }

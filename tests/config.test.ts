@@ -138,6 +138,23 @@ describe("parseCliConfig", () => {
     );
   });
 
+  it("defaults base currency to USD", () => {
+    expect(parse(["node", "cli"]).baseCurrency).toBe("USD");
+  });
+
+  it("uppercases and accepts a valid base currency", () => {
+    expect(parse(["node", "cli", "--base-currency", "eur"]).baseCurrency).toBe("EUR");
+    expect(parse(["node", "cli", "--base-currency", "GBP"]).baseCurrency).toBe("GBP");
+  });
+
+  it("rejects an invalid base currency", () => {
+    for (const value of ["US", "EURO", "12A", "$$$"]) {
+      expect(() => parse(["node", "cli", "--base-currency", value])).toThrow(
+        "--base-currency must be a 3-letter currency code (e.g. EUR, USD)"
+      );
+    }
+  });
+
   // Time format tests
   it("parses time format: plain number as days", () => {
     const config = parse(["node", "cli", "--time", "365"]);

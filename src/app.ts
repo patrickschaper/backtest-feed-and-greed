@@ -6,6 +6,12 @@ import type { ComboMetrics, Optimization } from "./backtest/optimize.js";
 import { parseCliConfig } from "./config.js";
 import { fetchFearGreedHistory } from "./data/fearGreedProvider.js";
 import { createPriceOrchestrator } from "./data/priceProvider.js";
+import {
+  convertSeriesToBase,
+  fetchFxSeries,
+  normalizeCurrency,
+  type NormalizedCurrency
+} from "./data/fxProvider.js";
 import { fetchSymbolMeta } from "./data/providers/yahoo.js";
 import { fetchSymbolMetaFromTradingView } from "./data/providers/tradingview.js";
 import { PortfolioClient } from "./data/portfolioClient.js";
@@ -126,6 +132,7 @@ function buildTimeline(
 
 export interface DisplayContext {
   symbolInfos?: SymbolInfo[];
+  baseCurrency?: string;
   buyThresholds?: number[];
   sellThresholds?: number[];
   optimization?: Optimization;
@@ -330,6 +337,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   // Symbol table (rendered before results if context provided)
   let symbolTableBlock = "";
   if (displayContext?.symbolInfos && displayContext.symbolInfos.length > 0) {
+    const base = displayContext.baseCurrency;
+    const baseSuffix = base ? ` (${base})` : "";
     const symTable = new Table({
       head: [
         "Symbol",
@@ -338,11 +347,11 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         "Currency",
         "Source",
         "Weight",
-        "Start Capital",
-        "Start Price",
-        "End Price",
+        `Start Capital${baseSuffix}`,
+        `Start Price${baseSuffix}`,
+        `End Price${baseSuffix}`,
         "Gain/Loss",
-        "End Capital"
+        `End Capital${baseSuffix}`
       ],
       colAligns: [
         "left",
@@ -422,7 +431,10 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       totalGainLossCell,
       totalEndCapital.toFixed(2)
     ]);
-    symbolTableBlock = ["", "Holdings", symTable.toString()].join("\n");
+    const holdingsTitle = base
+      ? `Holdings (prices & capital in ${base}; Currency = native listing currency)`
+      : "Holdings";
+    symbolTableBlock = ["", holdingsTitle, symTable.toString()].join("\n");
   }
 
   const C_RESET = "\u001b[0m";
@@ -593,15 +605,104 @@ export async function run(argv: string[]): Promise<void> {
     >;
     const availableSymbols = Object.keys(pricesBySymbol);
 
-    const timeline = buildTimeline(rangedFearGreed, pricesBySymbol, availableSymbols);
+    // Fetch symbol metadata up front — needed to determine each symbol's native
+    // currency for FX normalization (and reused later for the holdings table).
+    reporter.stage("Fetching symbol metadata");
+    const metaSettled = await Promise.allSettled(
+      availableSymbols.map((symbol) => {
+        const provider = priceOrchestrator.getProviderForSymbol(symbol);
+        return provider === "tradingview"
+          ? fetchSymbolMetaFromTradingView(symbol)
+          : fetchSymbolMeta(symbol);
+      })
+    );
+    const symbolMetaBySymbol = new Map<
+      string,
+      { name: string; exchange: string; currency: string }
+    >();
+    availableSymbols.forEach((symbol, i) => {
+      const metaResult = metaSettled[i];
+      symbolMetaBySymbol.set(
+        symbol,
+        metaResult?.status === "fulfilled"
+          ? metaResult.value
+          : { name: symbol, exchange: "—", currency: "—" }
+      );
+    });
+
+    // FX normalization: convert every price series into the base currency so a
+    // multi-currency portfolio is valued in comparable money (incl. FX moves).
+    const baseCurrency = cli.baseCurrency;
+    reporter.stage(`Converting prices to ${baseCurrency}`);
+    const fxPadStart = subtractDays(startDate, 21);
+    const currencyBySymbol = new Map<string, NormalizedCurrency | undefined>();
+    for (const symbol of availableSymbols) {
+      currencyBySymbol.set(symbol, normalizeCurrency(symbolMetaBySymbol.get(symbol)?.currency));
+    }
+
+    const distinctCodes = new Set<string>();
+    for (const norm of currencyBySymbol.values()) {
+      if (norm && norm.code !== baseCurrency) distinctCodes.add(norm.code);
+    }
+
+    const fxSeriesByCurrency = new Map<string, DailyPricePoint[] | null>();
+    const failedCurrencies = new Map<string, string>();
+    for (const code of distinctCodes) {
+      try {
+        fxSeriesByCurrency.set(
+          code,
+          await fetchFxSeries(code, baseCurrency, fxPadStart, now, logger)
+        );
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        failedCurrencies.set(code, msg);
+        logger.verbose(`Failed to fetch FX ${code}->${baseCurrency}: ${msg}`);
+      }
+    }
+
+    const convertedPrices: Record<string, DailyPricePoint[]> = {};
+    const droppedForFx: string[] = [];
+    for (const symbol of availableSymbols) {
+      const norm = currencyBySymbol.get(symbol);
+      if (!norm) {
+        droppedForFx.push(`${symbol} (unknown currency)`);
+        continue;
+      }
+      if (norm.code !== baseCurrency && failedCurrencies.has(norm.code)) {
+        droppedForFx.push(`${symbol} (${norm.code}->${baseCurrency} FX unavailable)`);
+        continue;
+      }
+      const fx = norm.code === baseCurrency ? null : (fxSeriesByCurrency.get(norm.code) ?? null);
+      const converted = convertSeriesToBase(pricesBySymbol[symbol]!, fx, norm.scale);
+      if (converted.length === 0) {
+        droppedForFx.push(`${symbol} (no FX coverage)`);
+        continue;
+      }
+      convertedPrices[symbol] = converted;
+    }
+
+    if (droppedForFx.length > 0) {
+      logger.warn(
+        `Skipped ${droppedForFx.length} symbol(s) during FX normalization to ${baseCurrency}: ${droppedForFx.join(", ")}`
+      );
+    }
+
+    const fxSymbols = Object.keys(convertedPrices);
+    if (fxSymbols.length === 0) {
+      throw new Error(
+        `No symbols remain after FX normalization to ${baseCurrency}. Check symbol currencies and FX availability.`
+      );
+    }
+
+    const timeline = buildTimeline(rangedFearGreed, convertedPrices, fxSymbols);
     if (timeline.length < 2) {
       throw new Error("Not enough aligned timeline points after merging data sources");
     }
-    logger.verbose(`Built timeline with ${timeline.length} aligned days`);
+    logger.verbose(`Built timeline with ${timeline.length} aligned days (base ${baseCurrency})`);
 
     // Reweight symbols based on available data
     const weightsArray = Object.entries(weights)
-      .filter(([symbol]) => availableSymbols.includes(symbol))
+      .filter(([symbol]) => fxSymbols.includes(symbol))
       .map(([symbol, weight]) => ({ symbol, weight }));
 
     let totalWeight = 0;
@@ -657,24 +758,16 @@ export async function run(argv: string[]): Promise<void> {
       });
       optimizedEquitySeries = optimizedResult.equityCurve.map((point) => point.equity);
     }
-    // Fetch symbol metadata for the holdings table
-    reporter.stage("Fetching symbol metadata");
+    // Build the holdings table from the prefetched metadata. Prices come from the
+    // FX-normalized timeline, so they are already expressed in the base currency.
     const firstDay = timeline[0];
     const lastDay = timeline[timeline.length - 1];
-    const metaSettled = await Promise.allSettled(
-      availableSymbols.map((symbol) => {
-        const provider = priceOrchestrator.getProviderForSymbol(symbol);
-        return provider === "tradingview"
-          ? fetchSymbolMetaFromTradingView(symbol)
-          : fetchSymbolMeta(symbol);
-      })
-    );
-    const symbolInfos: SymbolInfo[] = availableSymbols.map((symbol, i) => {
-      const metaResult = metaSettled[i];
-      const meta =
-        metaResult?.status === "fulfilled"
-          ? metaResult.value
-          : { name: symbol, exchange: "—", currency: "—" };
+    const symbolInfos: SymbolInfo[] = fxSymbols.map((symbol) => {
+      const meta = symbolMetaBySymbol.get(symbol) ?? {
+        name: symbol,
+        exchange: "—",
+        currency: "—"
+      };
       const startPrice = firstDay?.prices[symbol] ?? 0;
       const endPrice = lastDay?.prices[symbol] ?? 0;
       const weight = normalizedWeightObj[symbol] ?? 0;
@@ -695,6 +788,7 @@ export async function run(argv: string[]): Promise<void> {
     process.stdout.write(
       `${formatResult(result, {
         symbolInfos,
+        baseCurrency,
         buyThresholds: cli.buyThresholds,
         sellThresholds: cli.sellThresholds,
         optimization,

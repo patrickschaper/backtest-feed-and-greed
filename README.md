@@ -6,6 +6,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 
 - **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
 - **Portfolio mode** (`--portfolio`): backtests all open Trading212 holdings weighted by capital allocation (requires `TRADING212_API_TOKEN`)
+- **FX normalization**: all symbol prices are converted into a single base currency (`--base-currency`, default `USD`) using daily FX rates, so multi-currency portfolios are valued in comparable money (including currency movements). Minor units like pence (`GBp`/`GBX`) are handled automatically; symbols whose currency or FX rate can't be resolved are skipped with a warning.
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
 - **Threshold optimizer** (always on): searches sets of 1–N buy × 1–N sell thresholds (N = `--max-thresholds`, 1 to 3, default 1) for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `full`) — multi-threaded across CPU cores (one left free), with a live progress spinner. The best optimized strategy by total return is overlaid on the equity chart in magenta.
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
@@ -14,6 +15,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Terminal output:**
   - ASCII equity curve (strategy in yellow, buy & hold in cyan, Fear & Greed index in grey)
   - Colored legend below the chart
+  - Holdings table with prices and capital shown in the base currency (the `Currency` column reports each symbol's native listing currency)
   - Performance table with **Buy & Hold** (baseline) and **Manual strategy** rows. The optimizer's best thresholds per objective are always appended as extra rows in the same table.
   - CAGR note below the table
 
@@ -91,6 +93,9 @@ npm run dev -- --symbols AAPL,MSFT,TSLA --time 2y
 
 # Portfolio backtest (all open Trading212 positions; requires TRADING212_API_TOKEN)
 npm run dev -- --portfolio --time 2y
+
+# Value everything in EUR instead of the default USD (FX-normalized)
+npm run dev -- --portfolio --base-currency EUR
 ```
 
 ## Threshold Optimization
