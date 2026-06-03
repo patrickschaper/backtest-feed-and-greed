@@ -237,16 +237,21 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true), strategyRow);
 
   // Optimizer rows: best single buy/sell pair per objective, appended below Strategy.
+  // Each mirrors the Strategy row's inline deltas (vs Buy & Hold).
   const optimization = displayContext?.optimization;
   if (optimization && optimization.results.length > 0) {
+    const baseline = result.comparison.buyAndHold;
     const optRow = (label: string, best: ComboMetrics): Array<string | number> => [
       tableWhite(label),
       tableWhite(best.buyThreshold.toString()),
       tableWhite(best.sellThreshold.toString()),
       tableWhite(result.initialCash.toFixed(2)),
-      tableWhite(best.finalEquity.toFixed(2)),
-      colorizeSignedPercent(best.totalReturnPct),
-      colorizeSignedPercent(best.cagrPct),
+      tableWhite(best.finalEquity.toFixed(2)) +
+        deltaSuffix(best.finalEquity - baseline.finalEquity, (n) => n.toFixed(2)),
+      colorizeSignedPercent(best.totalReturnPct) +
+        deltaSuffix(best.totalReturnPct - baseline.totalReturnPct, (n) => `${n.toFixed(2)}%`),
+      colorizeSignedPercent(best.cagrPct) +
+        deltaSuffix(best.cagrPct - baseline.cagrPct, (n) => `${n.toFixed(2)}%`),
       tableWhite(`${best.maxDrawdownPct.toFixed(2)}%`),
       tableWhite(best.tradeCount.toString()),
       tableWhite(`${best.winRatePct.toFixed(2)}%`)

@@ -161,6 +161,35 @@ describe("formatResult", () => {
     expect(withOpt).toContain("10201 exhaustive combinations");
   });
 
+  it("appends inline deltas (vs Buy & Hold) to optimizer rows", () => {
+    const optimization: Optimization = {
+      combosTested: 10201,
+      results: [
+        {
+          key: "return",
+          label: "Max Return",
+          considers: "return only",
+          score: 12,
+          best: {
+            buyThreshold: 30,
+            sellThreshold: 60,
+            finalEquity: 11200,
+            totalReturnPct: 12,
+            cagrPct: 6,
+            maxDrawdownPct: 8,
+            winRatePct: 70,
+            tradeCount: 4
+          }
+        }
+      ]
+    };
+    // Fixture Buy & Hold: finalEquity 10300, return 3%, cagr 3%
+    const output = formatResult(createResult(), { optimization });
+    expect(output).toContain("(+900.00)");
+    expect(output).toContain("(+9.00%)");
+    expect(output).toContain("(+3.00%)");
+  });
+
   it("renders symbol table before chart when symbolInfos provided", () => {
     const symbolInfos: SymbolInfo[] = [
       {

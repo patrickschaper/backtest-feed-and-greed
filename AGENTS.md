@@ -85,7 +85,7 @@ Terminal output is rendered in this order:
 5. **Performance table** — one unified table. Columns: Scenario, Buy, Sell, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. Rows:
    - `Buy & Hold` (baseline, top; Buy/Sell shown as `-`)
    - `Strategy` (uses the given CLI/default thresholds; appends an inline delta vs Buy & Hold — ` (±X)` with a +/- sign, colored green (positive) / red (negative) / neutral (zero) — on Final Equity, Total Return, and CAGR)
-   - With `--optimize`: one row per objective (`Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`) below the Strategy row, each showing its best Buy/Sell thresholds and metrics (no inline deltas)
+   - With `--optimize`: one row per objective (`Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`) below the Strategy row, each showing its best Buy/Sell thresholds and metrics with the same inline ` (±X)` deltas vs Buy & Hold on Final Equity, Total Return, and CAGR
 6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
 7. **Optimizer note** (only with `--optimize`) — directly below the CAGR note; explains optimizer rows show the best buy/sell pair per objective and don't change the featured run
 
