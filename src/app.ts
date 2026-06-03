@@ -2,7 +2,7 @@ import { config as loadEnv } from "dotenv";
 import Table from "cli-table3";
 import { runBacktest } from "./backtest/engine.js";
 import { runOptimization } from "./backtest/optimize.js";
-import type { OptimizationResult } from "./backtest/optimize.js";
+import type { Optimization, OptimizationResult } from "./backtest/optimize.js";
 import { parseCliConfig } from "./config.js";
 import { fetchFearGreedHistory } from "./data/fearGreedProvider.js";
 import { createPriceOrchestrator } from "./data/priceProvider.js";
@@ -527,13 +527,13 @@ export async function run(argv: string[]): Promise<void> {
       normalizedWeightObj[item.symbol] = item.weight / totalWeight;
     }
 
-    let optimization: ReturnType<typeof runOptimization> | undefined;
+    let optimization: Optimization | undefined;
     let buyThresholds = cli.buyThresholds;
     let sellThresholds = cli.sellThresholds;
 
     if (cli.optimize) {
       logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
-      optimization = runOptimization(timeline, {
+      optimization = await runOptimization(timeline, {
         mode: cli.mode,
         initialCash: cli.initialCash,
         symbolWeights: normalizedWeightObj

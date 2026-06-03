@@ -100,6 +100,10 @@ Implemented in `src/backtest/optimize.ts`.
 - **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
 - **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
 - The featured chart + performance table use the **combined** (objective 4) best thresholds; the optimization table lists all four winners.
+- **Multi-threaded:** the 10,201-combo grid is split across all CPU cores via `node:worker_threads` (`src/backtest/optimizeWorker.ts`), giving a large speedup on multi-core machines. Cross-platform and any-CPU safe:
+  - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1.
+  - The worker is loaded via a `file://` URL object (not a path string) so it resolves on Windows/macOS/Linux, in both `tsx` dev (`.ts`) and built `dist` (`.js`).
+  - Falls back to the synchronous path (`runOptimizationSync`) on a single core, a tiny grid, or any worker failure — results are identical regardless of core count (deterministic selection; slices merged in buy order).
 
 ## Trading212 API Integration
 

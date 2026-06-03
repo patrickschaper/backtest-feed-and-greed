@@ -7,7 +7,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Portfolio mode** (default): backtests all open Trading212 holdings weighted by capital allocation
 - **Symbol mode**: one or more tickers via `--symbol AAPL` or comma-separated `--symbol AAPL,MSFT,TSLA`
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
-- **Threshold optimizer** (`--optimize`): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives
+- **Threshold optimizer** (`--optimize`): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives — multi-threaded across all CPU cores
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
@@ -118,6 +118,11 @@ lower drawdown, then higher CAGR.
 Output: the equity chart and performance table feature the **combined**
 (`Return / DD × Win Rate`) best thresholds, followed by an **Optimization
 Results** table listing all four objective winners.
+
+The search runs **multi-threaded** across all CPU cores (via `worker_threads`),
+typically several times faster than single-threaded. It works on any platform and
+any core count, and automatically falls back to single-threaded execution when only
+one core is available or workers are unsupported — results are identical either way.
 
 ## Strategy Logic
 

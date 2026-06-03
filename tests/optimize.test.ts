@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runOptimization, selectBest } from "../src/backtest/optimize.js";
+import { runOptimization, runOptimizationSync, selectBest } from "../src/backtest/optimize.js";
 import type { ComboMetrics } from "../src/backtest/optimize.js";
 
 function combo(overrides: Partial<ComboMetrics>): ComboMetrics {
@@ -100,7 +100,7 @@ describe("runOptimization", () => {
       { date: "2026-01-03", fearGreed: 40, prices: { AAPL: 90 } }
     ];
 
-    const optimization = runOptimization(timeline, {
+    const optimization = runOptimizationSync(timeline, {
       mode: "symbols",
       initialCash: 10_000,
       symbolWeights: { AAPL: 1 },
@@ -116,5 +116,47 @@ describe("runOptimization", () => {
       expect(result.best.sellThreshold).toBeGreaterThanOrEqual(0);
       expect(result.best.sellThreshold).toBeLessThanOrEqual(100);
     }
+  });
+
+  it("forces the single-threaded fallback for a tiny grid and matches sync output", async () => {
+    const timeline = [
+      { date: "2026-01-01", fearGreed: 60, prices: { AAPL: 100 } },
+      { date: "2026-01-02", fearGreed: 50, prices: { AAPL: 110 } },
+      { date: "2026-01-03", fearGreed: 40, prices: { AAPL: 90 } }
+    ];
+    const config = {
+      mode: "symbols" as const,
+      initialCash: 10_000,
+      symbolWeights: { AAPL: 1 },
+      minThreshold: 40,
+      maxThreshold: 45
+    };
+
+    const parallel = await runOptimization(timeline, config);
+    const sync = runOptimizationSync(timeline, config);
+
+    expect(parallel.combosTested).toBe(sync.combosTested);
+    expect(parallel.results).toEqual(sync.results);
+  });
+
+  it("produces the same result via the parallel worker pool as the sync path", async () => {
+    const timeline = Array.from({ length: 40 }, (_, i) => ({
+      date: `2026-02-${String(i + 1).padStart(2, "0")}`,
+      fearGreed: Math.round(40 + 30 * Math.sin(i / 4)),
+      prices: { AAPL: 100 + 5 * Math.sin(i / 3) }
+    }));
+    const config = {
+      mode: "symbols" as const,
+      initialCash: 10_000,
+      symbolWeights: { AAPL: 1 },
+      minThreshold: 0,
+      maxThreshold: 100
+    };
+
+    const parallel = await runOptimization(timeline, config);
+    const sync = runOptimizationSync(timeline, config);
+
+    expect(parallel.combosTested).toBe(sync.combosTested);
+    expect(parallel.results).toEqual(sync.results);
   });
 });
