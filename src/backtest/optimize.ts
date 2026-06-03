@@ -14,6 +14,7 @@ export interface OptimizeConfig {
 export interface ComboMetrics {
   buyThreshold: number;
   sellThreshold: number;
+  finalEquity: number;
   totalReturnPct: number;
   cagrPct: number;
   maxDrawdownPct: number;
@@ -175,6 +176,7 @@ export function computeCombosForRange(
       combos.push({
         buyThreshold: buy,
         sellThreshold: sell,
+        finalEquity: result.finalEquity,
         totalReturnPct: result.totalReturnPct,
         cagrPct: result.cagrPct,
         maxDrawdownPct: result.maxDrawdownPct,

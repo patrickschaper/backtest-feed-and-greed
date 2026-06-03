@@ -6,6 +6,7 @@ function combo(overrides: Partial<ComboMetrics>): ComboMetrics {
   return {
     buyThreshold: 0,
     sellThreshold: 0,
+    finalEquity: 0,
     totalReturnPct: 0,
     cagrPct: 0,
     maxDrawdownPct: 0,

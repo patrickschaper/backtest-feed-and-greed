@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatResult } from "../src/app.js";
+import type { Optimization } from "../src/backtest/optimize.js";
 import type { BacktestResult, SymbolInfo } from "../src/types.js";
 
 function createResult(): BacktestResult {
@@ -109,6 +110,55 @@ describe("formatResult", () => {
     // Fixture deltas: finalEquity 100, totalReturnPct 1, cagrPct 1
     expect(output).toContain("(+100.00)");
     expect(output).toContain("(+1.00%)");
+  });
+
+  it("includes Buy and Sell columns and shows given thresholds on the Strategy row", () => {
+    const output = formatResult(createResult(), {
+      buyThresholds: [55],
+      sellThresholds: [45]
+    });
+    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    expect(tableSlice).toContain("Buy");
+    expect(tableSlice).toContain("Sell");
+    // Thresholds rendered in the Strategy row
+    expect(tableSlice).toContain("55");
+    expect(tableSlice).toContain("45");
+  });
+
+  it("appends optimizer rows below Strategy only when optimization is provided", () => {
+    const withoutOpt = formatResult(createResult());
+    expect(withoutOpt).not.toContain("Max Return");
+    expect(withoutOpt).not.toContain("Optimizer rows");
+
+    const optimization: Optimization = {
+      combosTested: 10201,
+      results: [
+        {
+          key: "return",
+          label: "Max Return",
+          considers: "return only",
+          score: 12,
+          best: {
+            buyThreshold: 30,
+            sellThreshold: 60,
+            finalEquity: 11200,
+            totalReturnPct: 12,
+            cagrPct: 6,
+            maxDrawdownPct: 8,
+            winRatePct: 70,
+            tradeCount: 4
+          }
+        }
+      ]
+    };
+    const withOpt = formatResult(createResult(), { optimization });
+    const tableSlice = withOpt.slice(withOpt.lastIndexOf("Scenario"));
+    const strategyIndex = tableSlice.indexOf("Strategy");
+    const optIndex = tableSlice.indexOf("Max Return");
+    expect(optIndex).toBeGreaterThan(strategyIndex);
+    expect(tableSlice).toContain("11200.00");
+    expect(withOpt).toContain("Optimizer rows");
+    expect(withOpt).toContain("10201 exhaustive combinations");
   });
 
   it("renders symbol table before chart when symbolInfos provided", () => {

@@ -2,7 +2,7 @@ import { config as loadEnv } from "dotenv";
 import Table from "cli-table3";
 import { runBacktest } from "./backtest/engine.js";
 import { runOptimization } from "./backtest/optimize.js";
-import type { Optimization, OptimizationResult } from "./backtest/optimize.js";
+import type { ComboMetrics, Optimization } from "./backtest/optimize.js";
 import { parseCliConfig } from "./config.js";
 import { fetchFearGreedHistory } from "./data/fearGreedProvider.js";
 import { createPriceOrchestrator } from "./data/priceProvider.js";
@@ -121,61 +121,9 @@ function buildTimeline(
 
 export interface DisplayContext {
   symbolInfos?: SymbolInfo[];
-}
-
-export function formatOptimizationTable(
-  results: OptimizationResult[],
-  combosTested: number
-): string {
-  const useColors = Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
-  const colorize = (value: string, colorCode: string): string =>
-    useColors ? `\u001B[${colorCode}m${value}\u001B[0m` : value;
-  const white = (value: string): string => colorize(value, "37");
-  const signed = (value: number): string => {
-    const text = `${value.toFixed(2)}%`;
-    if (value > 0) return colorize(text, "32");
-    if (value < 0) return colorize(text, "91");
-    return white(text);
-  };
-
-  const table = new Table({
-    head: [
-      "Objective",
-      "Considers",
-      "Buy",
-      "Sell",
-      "Total Return",
-      "CAGR",
-      "Max Drawdown",
-      "Win Rate",
-      "Trades"
-    ],
-    colAligns: ["left", "left", "right", "right", "right", "right", "right", "right", "right"],
-    style: {
-      head: ["white"],
-      border: ["white"]
-    }
-  });
-
-  for (const result of results) {
-    table.push([
-      white(result.label),
-      white(result.considers),
-      white(result.best.buyThreshold.toString()),
-      white(result.best.sellThreshold.toString()),
-      signed(result.best.totalReturnPct),
-      signed(result.best.cagrPct),
-      white(`${result.best.maxDrawdownPct.toFixed(2)}%`),
-      white(`${result.best.winRatePct.toFixed(2)}%`),
-      white(result.best.tradeCount.toString())
-    ]);
-  }
-
-  return [
-    `Optimization Results (exhaustive search of ${combosTested} threshold combinations)`,
-    table.toString(),
-    "Featured chart and performance table above use the given buy/sell thresholds; rows below are the optimizer's best per objective."
-  ].join("\n");
+  buyThresholds?: number[];
+  sellThresholds?: number[];
+  optimization?: Optimization;
 }
 
 export function formatResult(result: BacktestResult, displayContext?: DisplayContext): string {
@@ -206,9 +154,13 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const row = (
     label: string,
     summary: BacktestPerformanceSummary,
+    buyCell: string,
+    sellCell: string,
     hideWinRate: boolean = false
   ): Array<string | number> => [
     tableWhite(label),
+    tableWhite(buyCell),
+    tableWhite(sellCell),
     tableWhite(result.initialCash.toFixed(2)),
     tableWhite(summary.finalEquity.toFixed(2)),
     colorizeSignedPercent(summary.totalReturnPct),
@@ -217,6 +169,11 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     tableWhite(summary.tradeCount.toString()),
     hideWinRate ? tableWhite("-") : tableWhite(`${summary.winRatePct.toFixed(2)}%`)
   ];
+
+  const thresholdCell = (values?: number[]): string =>
+    values && values.length > 0 ? values.join(",") : "-";
+  const buyCell = thresholdCell(displayContext?.buyThresholds);
+  const sellCell = thresholdCell(displayContext?.sellThresholds);
 
   const strategySummary = result.strategy ?? {
     finalEquity: result.finalEquity,
@@ -232,6 +189,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   // comparable columns: Final Equity, Total Return, CAGR.
   const strategyRow: Array<string | number> = [
     tableWhite("Strategy"),
+    tableWhite(buyCell),
+    tableWhite(sellCell),
     tableWhite(result.initialCash.toFixed(2)),
     tableWhite(strategySummary.finalEquity.toFixed(2)) +
       deltaSuffix(delta.finalEquity, (n) => n.toFixed(2)),
@@ -247,6 +206,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const perfTable = new Table({
     head: [
       "Scenario",
+      "Buy",
+      "Sell",
       "Start Equity",
       "Final Equity",
       "Total Return",
@@ -255,14 +216,45 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       "Trades",
       "Win Rate"
     ],
-    colAligns: ["left", "right", "right", "right", "right", "right", "right", "right"],
+    colAligns: [
+      "left",
+      "right",
+      "right",
+      "right",
+      "right",
+      "right",
+      "right",
+      "right",
+      "right",
+      "right"
+    ],
     style: {
       head: ["white"],
       border: ["white"]
     }
   });
 
-  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, true), strategyRow);
+  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true), strategyRow);
+
+  // Optimizer rows: best single buy/sell pair per objective, appended below Strategy.
+  const optimization = displayContext?.optimization;
+  if (optimization && optimization.results.length > 0) {
+    const optRow = (label: string, best: ComboMetrics): Array<string | number> => [
+      tableWhite(label),
+      tableWhite(best.buyThreshold.toString()),
+      tableWhite(best.sellThreshold.toString()),
+      tableWhite(result.initialCash.toFixed(2)),
+      tableWhite(best.finalEquity.toFixed(2)),
+      colorizeSignedPercent(best.totalReturnPct),
+      colorizeSignedPercent(best.cagrPct),
+      tableWhite(`${best.maxDrawdownPct.toFixed(2)}%`),
+      tableWhite(best.tradeCount.toString()),
+      tableWhite(`${best.winRatePct.toFixed(2)}%`)
+    ];
+    for (const objective of optimization.results) {
+      perfTable.push(optRow(objective.label, objective.best));
+    }
+  }
 
   const graphWidth = resolveGraphWidth(process.stdout.columns);
   const strategySeries = compressSeriesForWidth(
@@ -364,6 +356,11 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     ? `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}, ${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`
     : `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
 
+  const optimizerNote =
+    optimization && optimization.results.length > 0
+      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured Strategy run.`
+      : undefined;
+
   return [
     symbolTableBlock,
     "",
@@ -375,7 +372,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     legend,
     "",
     perfTable.toString(),
-    "CAGR = Compound Annual Growth Rate."
+    "CAGR = Compound Annual Growth Rate.",
+    ...(optimizerNote ? [optimizerNote] : [])
   ]
     .join("\n")
     .replace(/^\n/, "");
@@ -573,12 +571,14 @@ export async function run(argv: string[]): Promise<void> {
       };
     });
 
-    process.stdout.write(`${formatResult(result, { symbolInfos })}\n`);
-    if (optimization) {
-      process.stdout.write(
-        `\n${formatOptimizationTable(optimization.results, optimization.combosTested)}\n`
-      );
-    }
+    process.stdout.write(
+      `${formatResult(result, {
+        symbolInfos,
+        buyThresholds: cli.buyThresholds,
+        sellThresholds: cli.sellThresholds,
+        optimization
+      })}\n`
+    );
   } catch (error) {
     logger.verbose("Failed during data fetching or backtesting", error);
     throw error;
