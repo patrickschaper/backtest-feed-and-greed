@@ -178,9 +178,15 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     winRatePct: result.winRatePct
   };
 
-  // Sortable rows (everything except the Buy & Hold baseline), each paired with its
-  // total return so they can be ordered descending below the baseline.
+  // All rows participate in the sort, each paired with its total return so they can
+  // be ordered descending.
   const sortableRows: Array<{ totalReturnPct: number; cells: Array<string | number> }> = [];
+
+  // Buy & Hold baseline row.
+  sortableRows.push({
+    totalReturnPct: result.comparison.buyAndHold.totalReturnPct,
+    cells: row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true)
+  });
 
   // Strategy row mirrors `row` using the given (CLI/default) buy/sell thresholds.
   sortableRows.push({
@@ -253,10 +259,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
   }
 
-  // Buy & Hold stays pinned at the top; all other rows are sorted by total return
-  // (descending). Stable for equal returns (preserves Strategy-first, then objective order).
+  // All rows are sorted by total return (descending). Stable for equal returns.
   sortableRows.sort((a, b) => b.totalReturnPct - a.totalReturnPct);
-  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true));
   for (const sortableRow of sortableRows) {
     perfTable.push(sortableRow.cells);
   }

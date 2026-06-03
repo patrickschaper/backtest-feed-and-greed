@@ -94,7 +94,8 @@ describe("formatResult", () => {
     expect(cagrNoteIndex).toBeGreaterThan(tableIndex);
   });
 
-  it("shows Buy & Hold as the top row above Strategy and has no Delta row", () => {
+  it("sorts all rows by total return and has no Delta row", () => {
+    // Fixture: Buy & Hold return 3%, Manual strategy return 5% -> strategy sorts above.
     const output = formatResult(createResult());
     const tableSlice = output.slice(output.lastIndexOf("Scenario"));
     expect(tableSlice).not.toContain("Delta");
@@ -102,7 +103,7 @@ describe("formatResult", () => {
     const strategyIndex = tableSlice.indexOf("Manual strategy");
     expect(buyHoldIndex).toBeGreaterThan(-1);
     expect(strategyIndex).toBeGreaterThan(-1);
-    expect(buyHoldIndex).toBeLessThan(strategyIndex);
+    expect(strategyIndex).toBeLessThan(buyHoldIndex);
   });
 
   it("does not render inline deltas on the Strategy row", () => {
@@ -162,7 +163,7 @@ describe("formatResult", () => {
     expect(withOpt).toContain("10201 combinations");
   });
 
-  it("pins Buy & Hold on top and sorts other rows by total return descending", () => {
+  it("sorts all rows (including Buy & Hold) by total return descending", () => {
     const optimization: Optimization = {
       combosTested: 10201,
       strategy: "greedy",
@@ -203,14 +204,14 @@ describe("formatResult", () => {
     };
     const output = formatResult(createResult(), { optimization });
     const tableSlice = output.slice(output.lastIndexOf("Scenario"));
-    // Buy & Hold (3%) pinned top; then High Opt (50%) > Strategy (4%) > Low Opt (0.5%).
+    // Descending by total return: High Opt (50%) > Strategy (4%) > Buy & Hold (3%) > Low Opt (0.5%).
     const buyHold = tableSlice.indexOf("Buy & Hold");
     const high = tableSlice.indexOf("High Opt");
     const strategy = tableSlice.indexOf("Manual strategy");
     const low = tableSlice.indexOf("Low Opt");
-    expect(buyHold).toBeLessThan(high);
     expect(high).toBeLessThan(strategy);
-    expect(strategy).toBeLessThan(low);
+    expect(strategy).toBeLessThan(buyHold);
+    expect(buyHold).toBeLessThan(low);
   });
 
   it("does not render inline deltas on optimizer rows", () => {
