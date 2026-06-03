@@ -37,6 +37,7 @@ export function createProgressReporter(options: ProgressReporterOptions = {}): P
   let frame = 0;
   let timer: NodeJS.Timeout | undefined;
   let stopped = false;
+  let lastRenderedPct: number | undefined;
 
   const render = (): void => {
     const glyph = FRAMES[frame % FRAMES.length] as string;
@@ -44,6 +45,7 @@ export function createProgressReporter(options: ProgressReporterOptions = {}): P
     const spinner = useColor ? `\u001b[36m${glyph}\u001b[0m` : glyph;
     const suffix = pct !== undefined ? ` ${pct}%` : "";
     stream.write(`\r\u001b[2K${spinner} ${label}${suffix}`);
+    lastRenderedPct = pct;
   };
 
   const ensureTimer = (): void => {
@@ -61,11 +63,21 @@ export function createProgressReporter(options: ProgressReporterOptions = {}): P
     stage(text: string) {
       label = text;
       pct = undefined;
+      lastRenderedPct = undefined;
       ensureTimer();
+      render();
     },
     percent(value: number) {
       pct = Math.max(0, Math.min(100, Math.floor(value)));
       ensureTimer();
+      // Render directly (not just via the 80ms timer): heavy synchronous
+      // optimization phases block the event loop and would otherwise starve the
+      // timer, leaving the percentage stuck. onProgress runs on the same call
+      // stack, so a direct render keeps the percentage advancing. Throttle to
+      // whole-percent changes to avoid flooding the stream.
+      if (pct !== lastRenderedPct) {
+        render();
+      }
     },
     stop() {
       if (stopped) {

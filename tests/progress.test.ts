@@ -57,6 +57,23 @@ describe("createProgressReporter", () => {
     expect(stream.writes.length).toBe(afterStop);
   });
 
+  it("renders the percentage synchronously on percent(), without waiting for the timer", () => {
+    const stream = fakeStream(true);
+    const reporter = createProgressReporter({
+      stream: stream as unknown as NodeJS.WriteStream,
+      enabled: true
+    });
+    reporter.stage("Optimizing");
+    reporter.percent(37);
+    // No fake timers advanced: the percentage must already be on the stream,
+    // proving rendering does not depend solely on the 80ms interval (which would
+    // be starved by blocking synchronous optimization work).
+    expect(stream.writes.some((w) => w.includes("37%"))).toBe(true);
+    reporter.percent(73);
+    expect(stream.writes.some((w) => w.includes("73%"))).toBe(true);
+    reporter.stop();
+  });
+
   it("does not throw when percent is called before any stage", () => {
     const stream = fakeStream(true);
     const reporter = createProgressReporter({
