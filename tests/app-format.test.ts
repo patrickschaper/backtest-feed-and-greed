@@ -88,16 +88,11 @@ describe("formatResult", () => {
     const legendIndex = output.indexOf("Legend:");
     const tableIndex = output.indexOf("Scenario");
     const cagrNoteIndex = output.indexOf("CAGR = Compound Annual Growth Rate.");
-    const deltaIndex = output.indexOf("Delta (Strategy - Buy & Hold):");
     expect(legendIndex).toBeGreaterThan(chartHeaderIndex);
     expect(legendIndex).toBeLessThan(tableIndex);
     expect(cagrNoteIndex).toBeGreaterThan(tableIndex);
-    expect(cagrNoteIndex).toBeLessThan(deltaIndex);
-    const deltaLine = output
-      .split("\n")
-      .find((line) => line.startsWith("Delta (Strategy - Buy & Hold):"));
-    expect(deltaLine).toBeDefined();
-    expect(deltaLine).not.toContain("Win Rate");
+    // Delta row is now inside the table
+    expect(output).toContain("Delta");
   });
 
   it("renders symbol table before chart when symbolInfos provided", () => {

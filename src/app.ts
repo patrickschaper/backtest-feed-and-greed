@@ -201,7 +201,17 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
 
   perfTable.push(
     row("Strategy", strategySummary),
-    row("Buy & Hold", result.comparison.buyAndHold, true)
+    row("Buy & Hold", result.comparison.buyAndHold, true),
+    [
+      tableWhite("Delta"),
+      tableWhite("-"),
+      colorizeDeltaValue(result.comparison.delta.finalEquity, (n) => n.toFixed(2)),
+      colorizeDeltaPercent(result.comparison.delta.totalReturnPct),
+      colorizeDeltaValue(result.comparison.delta.cagrPct, (n) => `${n.toFixed(2)}%`),
+      tableWhite("-"),
+      tableWhite("-"),
+      tableWhite("-")
+    ]
   );
 
   const graphWidth = resolveGraphWidth(process.stdout.columns);
@@ -315,9 +325,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     legend,
     "",
     perfTable.toString(),
-    "CAGR = Compound Annual Growth Rate.",
-    "",
-    `Delta (Strategy - Buy & Hold): Final Equity ${result.comparison.delta.finalEquity.toFixed(2)}, Total Return ${colorizeDeltaPercent(result.comparison.delta.totalReturnPct)}, CAGR ${colorizeDeltaValue(result.comparison.delta.cagrPct, (n) => `${n.toFixed(2)}%`)}`
+    "CAGR = Compound Annual Growth Rate."
   ]
     .join("\n")
     .replace(/^\n/, "");

@@ -4,15 +4,17 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 
 ## Features
 
-- Portfolio backtest by default (all Trading212 holdings); automatically switches to single-symbol mode when `--symbol` is provided
-- Daily signal strategy with configurable thresholds
-  - Default buy threshold: `55`
-  - Default sell threshold: `45`
+- **Portfolio mode** (default): backtests all open Trading212 holdings weighted by capital allocation
+- **Symbol mode**: one or more tickers via `--symbol AAPL` or comma-separated `--symbol AAPL,MSFT,TSLA`
+- **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
-- Selectable price provider: `hybrid` (default), `yahoo`, `tradingview`
+- Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
-- Result table comparing strategy vs buy-and-hold baseline
-- Combined ASCII equity graph (strategy + buy-and-hold) above the table, fixed 30-line height and terminal-width adaptive rendering
+- **Terminal output:**
+  - ASCII equity curve (strategy in yellow, buy & hold in cyan, Fear & Greed index in grey)
+  - Colored legend below the chart
+  - Performance table with three rows: **Strategy**, **Buy & Hold**, and **Delta** (difference)
+  - CAGR note below the table
 
 ## Setup
 
@@ -68,11 +70,14 @@ npm run dev -- --help
 Examples:
 
 ```bash
-# Default 1-year portfolio backtest (backtests all open positions)
+# Default 1-year portfolio backtest (all open Trading212 positions)
 npm run dev --
 
-# Portfolio backtest with custom thresholds
+# Portfolio backtest over 3 years with custom thresholds
 npm run dev -- --time 3y --buy-threshold 60 --sell-threshold 40
+
+# Multiple buy/sell thresholds (trade at each crossing level)
+npm run dev -- --buy-threshold 55,65 --sell-threshold 45,35
 
 # Portfolio backtest for calendar 2 months
 npm run dev -- --time 2m
@@ -80,8 +85,11 @@ npm run dev -- --time 2m
 # Force Yahoo-only pricing
 npm run dev -- --price-provider yahoo
 
-# Single stock backtest
+# Single-stock backtest
 npm run dev -- --symbol AAPL --time 52w
+
+# Multi-symbol backtest (equal weight)
+npm run dev -- --symbol AAPL,MSFT,TSLA --time 2y
 ```
 
 ## Strategy Logic
@@ -90,9 +98,10 @@ The strategy is deterministic and runs in this order:
 
 1. **Initial entry (day 1):** the strategy always buys on the first backtest day using the configured symbol weights.
 2. **Crossing-based signals (middle of test):**
-   - **Buy trigger:** only when Fear & Greed crosses the buy threshold strictly upward (`previous < buyThreshold` and `current > buyThreshold`).
-   - **Sell trigger:** only when Fear & Greed crosses the sell threshold strictly downward (`previous > sellThreshold` and `current < sellThreshold`).
-   - Touching a threshold value alone (e.g. `== 55` or `== 45`) does **not** trigger a trade.
+   - **Buy trigger:** only when Fear & Greed crosses _any_ buy threshold strictly upward (`previous < threshold` and `current > threshold`).
+   - **Sell trigger:** only when Fear & Greed crosses _any_ sell threshold strictly downward (`previous > threshold` and `current < threshold`).
+   - Touching a threshold value alone (e.g. `== 55`) does **not** trigger a trade.
+   - When multiple thresholds are configured, each crossing is evaluated independently.
 3. **Final exit (last day):** if still invested, the strategy always sells on the final backtest day.
 
 This means the strategy is guaranteed to have a defined start and end state for every run.
@@ -101,9 +110,9 @@ This means the strategy is guaranteed to have a defined start and end state for 
 
 | Provider      | Option             | Auth Required                                     | Notes                                                                              |
 | ------------- | ------------------ | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| TradingView   | `tradingview`      | None (optional session cookies for higher limits) | Unofficial WebSocket API — may violate TradingView ToS; fragile but broad coverage |
 | Yahoo Finance | `yahoo`            | None                                              | Free, reliable for US/major exchanges                                              |
-| Hybrid        | `hybrid` (default) | _(all of the above optional)_                     | Tries TradingView first, Yahoo as fallback                                         |
+| TradingView   | `tradingview`      | None (optional session cookies for higher limits) | Unofficial WebSocket API — may violate TradingView ToS; fragile but broad coverage |
+| Hybrid        | `hybrid` (default) | _(all of the above optional)_                     | Tries Yahoo first, TradingView as fallback                                         |
 
 **Hybrid mode** (`--price-provider hybrid`, default) tries providers in this chain per symbol:
 `yahoo → tradingview`

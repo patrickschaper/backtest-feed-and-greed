@@ -7,6 +7,40 @@
 - Strategy engine code lives in `src/backtest/`
 - Data adapters live in `src/data/`
 
+## Git workflow
+
+### Branches
+
+Use short, kebab-case branch names prefixed by type:
+
+```
+feat/multi-symbol-support
+fix/time-axis-alignment
+chore/update-deps
+docs/update-readme
+```
+
+### Conventional commits
+
+All commit messages must follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<optional scope>): <short description>
+
+<optional body>
+```
+
+Common types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `style`, `perf`.
+
+Examples:
+
+```
+feat(cli): add --symbol flag for multi-stock backtests
+fix(graph): align time axis with chart plot area
+docs: update README with multi-threshold examples
+chore: bump vitest to v3
+```
+
 ## Quality gates
 
 - Format: Prettier
@@ -18,12 +52,27 @@
 
 - Signals are generated from daily Fear & Greed values.
 - Always buy on backtest day 1.
-- Buy only on strict upward threshold crossing: `previous < buyThreshold` and `current > buyThreshold`.
-- Sell only on strict downward threshold crossing: `previous > sellThreshold` and `current < sellThreshold`.
-- Equality does not trigger (`== buyThreshold` / `== sellThreshold` => hold).
+- Multiple buy and sell thresholds are supported (comma-separated via CLI).
+- Buy only on strict upward threshold crossing: `previous < threshold` and `current > threshold` (evaluated for each buy threshold).
+- Sell only on strict downward threshold crossing: `previous > threshold` and `current < threshold` (evaluated for each sell threshold).
+- Equality does not trigger (`== threshold` => hold).
 - Crossing signal on day `t` executes on day `t+1` to avoid lookahead bias.
 - Always sell on the final backtest day if still invested.
 - No fees/slippage modeling in v1.
+
+## Output structure
+
+Terminal output is rendered in this order:
+
+1. **Symbol table** — ticker, name, exchange, price range, allocated capital, weight % (omitted in portfolio mode with a single implicit symbol)
+2. **Mode / date range** — `Mode: symbols | portfolio` and `Date range: YYYY-MM-DD -> YYYY-MM-DD (N trading days)`
+3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; three series:
+   - Fear & Greed Index (grey)
+   - Strategy equity (yellow)
+   - Buy & Hold equity (cyan)
+4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
+5. **Performance table** — three rows: `Strategy`, `Buy & Hold`, `Delta`; columns: Scenario, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate
+6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
 
 ## Trading212 API Integration
 
