@@ -99,7 +99,7 @@ describe("formatResult", () => {
     const tableSlice = output.slice(output.lastIndexOf("Scenario"));
     expect(tableSlice).not.toContain("Delta");
     const buyHoldIndex = tableSlice.indexOf("Buy & Hold");
-    const strategyIndex = tableSlice.indexOf("Strategy");
+    const strategyIndex = tableSlice.indexOf("Manual strategy");
     expect(buyHoldIndex).toBeGreaterThan(-1);
     expect(strategyIndex).toBeGreaterThan(-1);
     expect(buyHoldIndex).toBeLessThan(strategyIndex);
@@ -154,7 +154,7 @@ describe("formatResult", () => {
     const withOpt = formatResult(createResult(), { optimization });
     const tableSlice = withOpt.slice(withOpt.lastIndexOf("Scenario"));
     // Fixture: Strategy return 4%, Max Return 12% -> Max Return sorts above Strategy.
-    const strategyIndex = tableSlice.indexOf("Strategy");
+    const strategyIndex = tableSlice.indexOf("Manual strategy");
     const optIndex = tableSlice.indexOf("Max Return");
     expect(optIndex).toBeGreaterThan(-1);
     expect(optIndex).toBeLessThan(strategyIndex);
@@ -206,7 +206,7 @@ describe("formatResult", () => {
     // Buy & Hold (3%) pinned top; then High Opt (50%) > Strategy (4%) > Low Opt (0.5%).
     const buyHold = tableSlice.indexOf("Buy & Hold");
     const high = tableSlice.indexOf("High Opt");
-    const strategy = tableSlice.indexOf("Strategy");
+    const strategy = tableSlice.indexOf("Manual strategy");
     const low = tableSlice.indexOf("Low Opt");
     expect(buyHold).toBeLessThan(high);
     expect(high).toBeLessThan(strategy);

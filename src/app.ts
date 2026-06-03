@@ -195,7 +195,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   sortableRows.push({
     totalReturnPct: strategySummary.totalReturnPct,
     cells: [
-      tableWhite("Strategy"),
+      tableWhite("Manual strategy"),
       tableWhite(buyCell),
       tableWhite(sellCell),
       tableWhite(result.initialCash.toFixed(2)),
@@ -380,7 +380,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
 
   const optimizerNote =
     optimization && optimization.results.length > 0
-      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured Strategy run.`
+      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured Manual strategy run.`
       : undefined;
 
   return [

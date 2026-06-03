@@ -84,9 +84,9 @@ Terminal output is rendered in this order:
 4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
 5. **Performance table** — one unified table. Columns: Scenario, Buy, Sell, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. Rows:
    - `Buy & Hold` (baseline, always pinned to the top; Buy/Sell shown as `-`)
-   - `Strategy` (uses the given CLI/default thresholds; appends an inline delta vs Buy & Hold — ` (Δ±X)` with neutral-colored brackets, a leading delta sign (Δ), and a +/- sign + number colored green (positive) / red (negative) / neutral (zero) — on Final Equity, Total Return, and CAGR)
+   - `Manual strategy` (uses the given CLI/default thresholds; appends an inline delta vs Buy & Hold — ` (Δ±X)` with neutral-colored brackets, a leading delta sign (Δ), and a +/- sign + number colored green (positive) / red (negative) / neutral (zero) — on Final Equity, Total Return, and CAGR)
    - With `--optimize`: one row per objective (`Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`), each showing its best Buy/Sell thresholds and metrics with the same inline ` (Δ±X)` deltas vs Buy & Hold on Final Equity, Total Return, and CAGR
-   - All rows **except `Buy & Hold`** (i.e. `Strategy` + any optimizer rows) are sorted by **Total Return, descending**
+   - All rows **except `Buy & Hold`** (i.e. `Manual strategy` + any optimizer rows) are sorted by **Total Return, descending**
 6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
 7. **Optimizer note** (only with `--optimize`) — directly below the CAGR note; explains optimizer rows show the best buy/sell pair per objective and don't change the featured run
 
@@ -103,7 +103,7 @@ Implemented in `src/backtest/optimize.ts`.
   4. `Return / DD × Win Rate` — combination of 2 and 3
 - **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
 - **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
-- The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds. With `--optimize`, the four objective winners are appended as extra rows in that same performance table (below the Strategy row) — informational, they do not change the featured run.
+- The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds. With `--optimize`, the four objective winners are appended as extra rows in that same performance table (alongside the Manual strategy row) — informational, they do not change the featured run.
 - **Multi-threaded:** the 10,201-combo grid is split across all CPU cores via `node:worker_threads` (`src/backtest/optimizeWorker.ts`), giving a large speedup on multi-core machines. Cross-platform and any-CPU safe:
   - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1.
   - The worker is loaded via a `file://` URL object (not a path string) so it resolves on Windows/macOS/Linux, in both `tsx` dev (`.ts`) and built `dist` (`.js`).
