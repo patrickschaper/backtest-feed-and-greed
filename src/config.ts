@@ -1,4 +1,6 @@
 import { Command } from "commander";
+import { OPTIMIZER_STRATEGIES } from "./backtest/optimize.js";
+import type { OptimizerStrategy } from "./backtest/optimize.js";
 import type { BacktestMode, PriceMode } from "./types.js";
 
 export type { PriceMode };
@@ -11,6 +13,7 @@ export interface CliConfig {
   buyThresholds: number[];
   sellThresholds: number[];
   initialCash: number;
+  optimizerStrategy: OptimizerStrategy;
   verbose: boolean;
 }
 
@@ -22,6 +25,7 @@ interface RawCliConfig {
   buyThreshold?: string;
   sellThreshold?: string;
   initialCash?: string;
+  optimizerStrategy?: string;
   verbose?: boolean;
 }
 
@@ -179,6 +183,11 @@ export function buildProgram(): Command {
       "45"
     )
     .option("--initial-cash <value>", "Initial portfolio cash", "10000")
+    .option(
+      "--optimizer-strategy <strategy>",
+      "Threshold search: greedy | coarse | single-expand | full",
+      "greedy"
+    )
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -190,6 +199,10 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
   const validProviders: PriceMode[] = ["yahoo", "tradingview", "hybrid"];
   if (!validProviders.includes(options.priceProvider as PriceMode)) {
     throw new Error("--price-provider must be one of: yahoo, tradingview, hybrid");
+  }
+
+  if (!OPTIMIZER_STRATEGIES.includes(options.optimizerStrategy as OptimizerStrategy)) {
+    throw new Error("--optimizer-strategy must be one of: greedy, coarse, single-expand, full");
   }
 
   const buyThresholds = parseThresholds(options.buyThreshold, "--buy-threshold", [55]);
@@ -229,6 +242,7 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     buyThresholds,
     sellThresholds,
     initialCash,
+    optimizerStrategy: options.optimizerStrategy as OptimizerStrategy,
     verbose: Boolean(options.verbose)
   };
 }

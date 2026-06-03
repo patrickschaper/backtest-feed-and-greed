@@ -7,7 +7,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
 - **Portfolio mode** (`--portfolio`): backtests all open Trading212 holdings weighted by capital allocation (requires `TRADING212_API_TOKEN`)
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
-- **Threshold optimizer** (always on): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives — multi-threaded across all CPU cores
+- **Threshold optimizer** (always on): searches sets of 1–3 buy × 1–3 sell thresholds for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `greedy`) — multi-threaded across all CPU cores, with a live progress spinner
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
@@ -95,11 +95,31 @@ npm run dev -- --portfolio --time 2y
 
 ## Threshold Optimization
 
-Every run exhaustively backtests every integer buy/sell threshold
-pair (buy ∈ 0–100, sell ∈ 0–100 → 10,201 combinations) and reports the best
-thresholds for four objectives. Scoring is ratio-based and parameter-free; for
-combos with a non-positive total return the raw return is used so the optimizer
-picks the "least bad" result rather than a misleading ratio.
+Every run searches **sets of 1–3 buy thresholds × 1–3 sell thresholds** (including
+asymmetric counts, e.g. 1 buy + 3 sell) and reports the best thresholds for four
+objectives. Scoring is ratio-based and parameter-free; for combos with a non-positive
+total return the raw return is used so the optimizer picks the "least bad" result
+rather than a misleading ratio.
+
+Because the full integer 1–3 subset space is enormous (≈ 29.5 billion backtests), the
+search method is selectable via `--optimizer-strategy`:
+
+| Strategy        | What it does                                                                                          | Approx. cost |
+| --------------- | ----------------------------------------------------------------------------------------------------- | ------------ |
+| `greedy`        | **Default.** Best single buy+sell grid (10,201), then greedily add a buy or sell threshold (≤ 3 each) | ~10.2k+      |
+| `single-expand` | Single-grid anchor, then one ordered pass adding up to 2 more buy, then 2 more sell thresholds        | ~10.2k+      |
+| `coarse`        | Thresholds restricted to steps of 5 (21 levels); brute-force all 1–3 subsets both sides               | ~2.44M       |
+| `full`          | Integer resolution, all 1–3 subsets both sides — uncapped, will not finish in practice (warned)       | ~29.5B       |
+
+```bash
+# Use a coarse exhaustive multi-threshold search
+npm run dev -- --symbols AAPL --optimizer-strategy coarse --time 90d
+```
+
+`greedy` and `single-expand` are heuristics anchored on the best single-threshold
+combo, so they can never finish worse than the single-threshold winner; `coarse` is the
+broad-search alternative. `full` is intentionally uncapped and guarded by a verbose
+warning.
 
 | Objective              | Considers           | Score (positive-return combos)                |
 | ---------------------- | ------------------- | --------------------------------------------- |
@@ -110,13 +130,13 @@ picks the "least bad" result rather than a misleading ratio.
 
 A zero-drawdown positive-return combo is treated as ideal for the drawdown
 objectives. Score ties break deterministically by higher total return, then
-lower drawdown, then higher CAGR.
+lower drawdown, then higher CAGR, then fewer/lexicographically-smaller threshold sets.
 
 Output: the equity chart and performance table feature the **given** (CLI/default)
 buy/sell thresholds. The four objective winners are appended as extra rows in that
 same performance table (below the Manual strategy row), showing each objective's best
-buy/sell thresholds and metrics. They are informational and do not change the
-featured backtest.
+buy/sell threshold sets (comma-joined) and metrics. They are informational and do not
+change the featured backtest.
 
 The search runs **multi-threaded** across all CPU cores (via `worker_threads`),
 typically several times faster than single-threaded. It works on any platform and

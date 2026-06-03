@@ -29,6 +29,7 @@ import {
   resolveGraphWidth
 } from "./utils/graph.js";
 import { createLogger } from "./utils/logger.js";
+import { createProgressReporter } from "./progress.js";
 
 const STRATEGY_LABEL = "Manual strategy";
 
@@ -251,8 +252,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     const baseline = result.comparison.buyAndHold;
     const optRow = (label: string, best: ComboMetrics): Array<string | number> => [
       tableWhite(label),
-      tableWhite(best.buyThreshold.toString()),
-      tableWhite(best.sellThreshold.toString()),
+      tableWhite(thresholdCell(best.buyThresholds)),
+      tableWhite(thresholdCell(best.sellThresholds)),
       tableWhite(result.initialCash.toFixed(2)),
       tableWhite(best.finalEquity.toFixed(2)) +
         deltaSuffix(best.finalEquity - baseline.finalEquity, (n) => n.toFixed(2)),
@@ -382,7 +383,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
 
   const optimizerNote =
     optimization && optimization.results.length > 0
-      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured ${STRATEGY_LABEL} run.`
+      ? `Optimizer rows show the best buy/sell threshold set per objective (${optimization.strategy} search, ${optimization.combosTested} combinations evaluated); they do not change the featured ${STRATEGY_LABEL} run.`
       : undefined;
 
   return [
@@ -434,31 +435,36 @@ export async function run(argv: string[]): Promise<void> {
   loadEnv({ quiet: true });
   const cli = parseCliConfig(argv);
   const logger = createLogger(cli.verbose);
+  const reporter = createProgressReporter({
+    enabled: Boolean(process.stderr.isTTY) && !cli.verbose
+  });
 
   const now = new Date();
   const startDate = subtractDays(now, cli.periodDays ?? 365);
 
-  let holdings: PieHolding[] | undefined;
-  if (cli.mode === "portfolio") {
-    const token = process.env.TRADING212_API_TOKEN;
-    if (!token) {
-      throw new Error("TRADING212_API_TOKEN is required for portfolio backtests");
-    }
-    const client = new PortfolioClient(token, undefined, logger);
-    try {
-      logger.verbose("Fetching portfolio positions from Trading212...");
-      holdings = await client.fetchPortfolioPositions();
-      logger.verbose(`Loaded ${holdings.length} holdings from Trading212 portfolio`);
-    } catch (error) {
-      logger.verbose("Failed to fetch Trading212 portfolio data", error);
-      throw error;
-    }
-  }
-
-  const { symbols, weights } = resolveSymbolsAndWeights(cli.mode, cli.symbols, holdings);
-  logger.verbose(`Backtesting symbols: ${symbols.join(", ")}`);
-
   try {
+    let holdings: PieHolding[] | undefined;
+    if (cli.mode === "portfolio") {
+      const token = process.env.TRADING212_API_TOKEN;
+      if (!token) {
+        throw new Error("TRADING212_API_TOKEN is required for portfolio backtests");
+      }
+      const client = new PortfolioClient(token, undefined, logger);
+      try {
+        reporter.stage("Fetching Trading212 portfolio");
+        logger.verbose("Fetching portfolio positions from Trading212...");
+        holdings = await client.fetchPortfolioPositions();
+        logger.verbose(`Loaded ${holdings.length} holdings from Trading212 portfolio`);
+      } catch (error) {
+        logger.verbose("Failed to fetch Trading212 portfolio data", error);
+        throw error;
+      }
+    }
+
+    const { symbols, weights } = resolveSymbolsAndWeights(cli.mode, cli.symbols, holdings);
+    logger.verbose(`Backtesting symbols: ${symbols.join(", ")}`);
+
+    reporter.stage("Downloading Fear & Greed Index");
     logger.verbose("Fetching Fear & Greed history...");
     const fearGreedRows = await fetchFearGreedHistory();
     logger.verbose(`Loaded ${fearGreedRows.length} Fear & Greed data points`);
@@ -469,6 +475,11 @@ export async function run(argv: string[]): Promise<void> {
     logger.verbose(`Using ${rangedFearGreed.length} Fear & Greed points in range`);
 
     logger.verbose(`Fetching historical prices for ${symbols.length} symbol(s)...`);
+    reporter.stage(
+      symbols.length === 1
+        ? `Downloading prices: ${symbols[0]}`
+        : `Downloading prices (${symbols.length} symbols)`
+    );
 
     const priceOrchestrator = createPriceOrchestrator(cli.priceProvider, process.env, logger);
 
@@ -542,11 +553,21 @@ export async function run(argv: string[]): Promise<void> {
       normalizedWeightObj[item.symbol] = item.weight / totalWeight;
     }
 
-    logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
+    if (cli.optimizerStrategy === "full") {
+      logger.warn(
+        "--optimizer-strategy full evaluates billions of combinations and may not finish; consider 'coarse'."
+      );
+    }
+    reporter.stage("Optimizing");
+    logger.verbose(`Running threshold optimization (${cli.optimizerStrategy} search)...`);
     const optimization = await runOptimization(timeline, {
       mode: cli.mode,
       initialCash: cli.initialCash,
-      symbolWeights: normalizedWeightObj
+      symbolWeights: normalizedWeightObj,
+      strategy: cli.optimizerStrategy,
+      onProgress: (done, total) => {
+        reporter.percent(total > 0 ? (done / total) * 100 : 0);
+      }
     });
     logger.verbose(`Optimization tested ${optimization.combosTested} threshold combinations`);
 
@@ -559,6 +580,7 @@ export async function run(argv: string[]): Promise<void> {
     });
 
     // Fetch symbol metadata for the holdings table
+    reporter.stage("Fetching symbol metadata");
     const firstDay = timeline[0];
     const lastDay = timeline[timeline.length - 1];
     const metaSettled = await Promise.allSettled(
@@ -591,6 +613,7 @@ export async function run(argv: string[]): Promise<void> {
       };
     });
 
+    reporter.stop();
     process.stdout.write(
       `${formatResult(result, {
         symbolInfos,
@@ -602,5 +625,7 @@ export async function run(argv: string[]): Promise<void> {
   } catch (error) {
     logger.verbose("Failed during data fetching or backtesting", error);
     throw error;
+  } finally {
+    reporter.stop();
   }
 }

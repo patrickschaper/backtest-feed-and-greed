@@ -132,6 +132,7 @@ describe("formatResult", () => {
 
     const optimization: Optimization = {
       combosTested: 10201,
+      strategy: "greedy",
       results: [
         {
           key: "return",
@@ -139,8 +140,8 @@ describe("formatResult", () => {
           considers: "return only",
           score: 12,
           best: {
-            buyThreshold: 30,
-            sellThreshold: 60,
+            buyThresholds: [30],
+            sellThresholds: [60],
             finalEquity: 11200,
             totalReturnPct: 12,
             cagrPct: 6,
@@ -160,12 +161,13 @@ describe("formatResult", () => {
     expect(optIndex).toBeLessThan(strategyIndex);
     expect(tableSlice).toContain("11200.00");
     expect(withOpt).toContain("Optimizer rows");
-    expect(withOpt).toContain("10201 exhaustive combinations");
+    expect(withOpt).toContain("10201 combinations");
   });
 
   it("pins Buy & Hold on top and sorts other rows by total return descending", () => {
     const optimization: Optimization = {
       combosTested: 10201,
+      strategy: "greedy",
       results: [
         {
           key: "returnWinRate",
@@ -173,8 +175,8 @@ describe("formatResult", () => {
           considers: "win rate",
           score: 1,
           best: {
-            buyThreshold: 20,
-            sellThreshold: 40,
+            buyThresholds: [20],
+            sellThresholds: [40],
             finalEquity: 10050,
             totalReturnPct: 0.5,
             cagrPct: 0.5,
@@ -189,8 +191,8 @@ describe("formatResult", () => {
           considers: "return only",
           score: 50,
           best: {
-            buyThreshold: 25,
-            sellThreshold: 55,
+            buyThresholds: [25],
+            sellThresholds: [55],
             finalEquity: 15000,
             totalReturnPct: 50,
             cagrPct: 20,
@@ -216,6 +218,7 @@ describe("formatResult", () => {
   it("appends inline deltas (vs Buy & Hold) to optimizer rows", () => {
     const optimization: Optimization = {
       combosTested: 10201,
+      strategy: "greedy",
       results: [
         {
           key: "return",
@@ -223,8 +226,8 @@ describe("formatResult", () => {
           considers: "return only",
           score: 12,
           best: {
-            buyThreshold: 30,
-            sellThreshold: 60,
+            buyThresholds: [30],
+            sellThresholds: [60],
             finalEquity: 11200,
             totalReturnPct: 12,
             cagrPct: 6,

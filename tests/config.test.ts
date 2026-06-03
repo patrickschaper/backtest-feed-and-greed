@@ -95,6 +95,24 @@ describe("parseCliConfig", () => {
     }
   });
 
+  it("defaults optimizer strategy to greedy", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.optimizerStrategy).toBe("greedy");
+  });
+
+  it("accepts all valid optimizer strategies", () => {
+    for (const strategy of ["greedy", "coarse", "single-expand", "full"]) {
+      const config = parse(["node", "cli", "--optimizer-strategy", strategy]);
+      expect(config.optimizerStrategy).toBe(strategy);
+    }
+  });
+
+  it("rejects invalid optimizer strategy", () => {
+    expect(() => parse(["node", "cli", "--optimizer-strategy", "bogus"])).toThrow(
+      "--optimizer-strategy must be one of: greedy, coarse, single-expand, full"
+    );
+  });
+
   // Time format tests
   it("parses time format: plain number as days", () => {
     const config = parse(["node", "cli", "--time", "365"]);

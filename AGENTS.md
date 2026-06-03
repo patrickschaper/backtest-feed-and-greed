@@ -96,7 +96,12 @@ Terminal output is rendered in this order:
 
 Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
 
-- Exhaustively backtests every integer buy/sell threshold pair (buy 0–100, sell 0–100 = 10,201 combos) by reusing `runBacktest` with single-element threshold arrays.
+- Searches **sets of 1–3 buy thresholds × 1–3 sell thresholds** (including asymmetric counts, e.g. 1 buy + 3 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays.
+- The search space is huge (full integer 1–3 subsets ≈ 29.5B backtests), so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **greedy**):
+  - **greedy** (default): evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach size 3.
+  - **single-expand**: same single-grid anchor, then a single ordered pass — add up to 2 more buy thresholds (full 0–100 scan each), then up to 2 more sell thresholds; anchor fixed.
+  - **coarse**: restrict thresholds to steps of 5 (levels 0,5,…,100 = 21 values) and brute-force ALL size-1..3 buy subsets × size-1..3 sell subsets (≈ 1,561 × 1,561 ≈ 2.44M runs).
+  - **full**: integer resolution (0–100), ALL size-1..3 subsets both sides (≈ 29.5B). Implemented faithfully with a prominent verbose warning; uncapped (will not finish in practice — exists for completeness).
 - Reuses the existing timeline, mode, initial cash, and symbol weights; only thresholds vary.
 - Selects the best combo for four objectives via parameter-free, ratio-based scoring:
   1. `Max Return` — `totalReturnPct`
@@ -104,12 +109,21 @@ Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
   3. `Return × Win Rate` — `totalReturnPct × (winRatePct / 100)`
   4. `Return / DD × Win Rate` — combination of 2 and 3
 - **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
-- **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
+- **Shared comparator:** a single `isBetter(candidate, current, objective)` (score `>`, or score `===` with tie-break) is reused in `BestTracker.update`/`merge` and in greedy/single-expand expansion, so parallel and sync produce identical results regardless of encounter order.
+- **Tie-break (array-aware):** higher total return, then lower drawdown, then higher CAGR, then fewer buy thresholds, then lexicographic buy array, then fewer sell thresholds, then lexicographic sell array.
+- **Floor guarantee:** trackers seed from the best single combo and replace only when `isBetter`, so greedy/single-expand can never finish worse than the single-threshold winner.
+- **Heuristic note:** greedy/single-expand are heuristics (adding a threshold changes the signal-fraction denominator and can dilute signals), not guaranteed global optima; `coarse` is the broad-search alternative. The optimizer rows render the comma-joined threshold sets in their Buy/Sell cells.
 - The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds. The four objective winners are always appended as extra rows in that same performance table (alongside the Manual strategy row) — informational, they do not change the featured run.
-- **Multi-threaded:** the 10,201-combo grid is split across all CPU cores via `node:worker_threads` (`src/backtest/optimizeWorker.ts`), giving a large speedup on multi-core machines. Cross-platform and any-CPU safe:
-  - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1.
-  - The worker is loaded via a `file://` URL object (not a path string) so it resolves on Windows/macOS/Linux, in both `tsx` dev (`.ts`) and built `dist` (`.js`).
-  - Falls back to the synchronous path (`runOptimizationSync`) on a single core, a tiny grid, or any worker failure — results are identical regardless of core count (deterministic selection; slices merged in buy order).
+- **Multi-threaded:** Cross-platform and any-CPU safe:
+  - greedy / single-expand split the 10,201-combo single grid across all CPU cores via `optimizeWorker.ts`; the (small) expansion then runs synchronously on the main thread.
+  - coarse / full partition the buy-subset list across cores via `optimizeSubsetWorker.ts`; each worker streams subsets into a local `BestTracker` and returns serialized per-objective bests + a count, which the main thread merges via the shared comparator.
+  - Worker → main messages use **structured clone** of plain objects (never JSON — `Infinity` scores would be corrupted to `null`).
+  - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1; workers loaded via a `file://` URL object resolving `.ts` (tsx dev) vs `.js` (dist).
+  - Falls back to the synchronous path (`runOptimizationSync`) on a single core, a tiny grid, or any worker failure — results are identical regardless of core count.
+
+### Progress spinner
+
+`src/progress.ts` provides a hand-rolled `ProgressReporter` (no new dependency) that writes a live, stage-labeled spinner to **stderr** — active **only** when `process.stderr.isTTY` and `--verbose` is off (verbose narrates stages via the logger; non-TTY/pipes/tests get a silent no-op so stdout stays clean). `run()` drives `stage(...)` through each phase (`Fetching Trading212 portfolio`, `Downloading Fear & Greed Index`, `Downloading prices: <SYMBOL>`, `Optimizing NN%`, `Fetching symbol metadata`) and maps optimizer `onProgress(done, total)` to `reporter.percent(...)`. The spinner is stopped before the result table is written to stdout and in a `finally` so it never lingers on error.
 
 ## Trading212 API Integration
 
