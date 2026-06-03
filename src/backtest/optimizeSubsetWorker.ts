@@ -17,7 +17,8 @@ if (!parentPort) {
 const port = parentPort;
 const { timeline, config, levels, buySubsets } = workerData as SubsetWorkerData;
 
-const sellSubsets = [...subsets(levels, 1, 3)];
+const cap = Math.max(1, Math.min(3, Math.floor(config.maxThresholds ?? 3)));
+const sellSubsets = [...subsets(levels, 1, cap)];
 const total = buySubsets.length * sellSubsets.length;
 // Post progress at least every 1% but no less often than every 20k evaluations, so
 // huge searches (e.g. `full`) still surface frequent updates instead of appearing

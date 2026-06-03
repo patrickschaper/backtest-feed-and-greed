@@ -14,6 +14,7 @@ export interface CliConfig {
   sellThresholds: number[];
   initialCash: number;
   optimizerStrategy: OptimizerStrategy;
+  maxThresholds: number;
   verbose: boolean;
 }
 
@@ -26,6 +27,7 @@ interface RawCliConfig {
   sellThreshold?: string;
   initialCash?: string;
   optimizerStrategy?: string;
+  maxThresholds?: string;
   verbose?: boolean;
 }
 
@@ -188,6 +190,7 @@ export function buildProgram(): Command {
       "Threshold search: greedy | coarse | single-expand | full",
       "greedy"
     )
+    .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 or 2)", "2")
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -203,6 +206,11 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
 
   if (!OPTIMIZER_STRATEGIES.includes(options.optimizerStrategy as OptimizerStrategy)) {
     throw new Error("--optimizer-strategy must be one of: greedy, coarse, single-expand, full");
+  }
+
+  const maxThresholds = parseOptionalNumber(options.maxThresholds, "--max-thresholds") ?? 2;
+  if (!Number.isInteger(maxThresholds) || maxThresholds <= 0 || maxThresholds >= 3) {
+    throw new Error("--max-thresholds must be an integer greater than 0 and less than 3");
   }
 
   const buyThresholds = parseThresholds(options.buyThreshold, "--buy-threshold", [55]);
@@ -243,6 +251,7 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     sellThresholds,
     initialCash,
     optimizerStrategy: options.optimizerStrategy as OptimizerStrategy,
+    maxThresholds,
     verbose: Boolean(options.verbose)
   };
 }

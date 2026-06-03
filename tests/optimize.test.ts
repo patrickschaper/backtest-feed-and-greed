@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLevels,
   computeCombosForRange,
+  countSubsetsUpTo,
   countSubsetsUpTo3,
   runOptimization,
   runOptimizationSync,
@@ -130,6 +131,15 @@ describe("subset helpers", () => {
     }
   });
 
+  it("counts size-1..maxSize subsets without enumerating", () => {
+    for (const n of [1, 2, 3, 5, 21]) {
+      const levels = Array.from({ length: n }, (_, i) => i);
+      for (const maxSize of [1, 2, 3]) {
+        expect(countSubsetsUpTo(n, maxSize)).toBe([...subsets(levels, 1, maxSize)].length);
+      }
+    }
+  });
+
   it("builds ascending unique levels that always include the max", () => {
     expect(buildLevels(0, 100, 5)).toEqual(Array.from({ length: 21 }, (_, i) => i * 5));
     expect(buildLevels(0, 10, 3)).toEqual([0, 3, 6, 9, 10]);
@@ -165,6 +175,24 @@ describe("runOptimization", () => {
       for (const t of [...result.best.buyThresholds, ...result.best.sellThresholds]) {
         expect(t).toBeGreaterThanOrEqual(0);
         expect(t).toBeLessThanOrEqual(100);
+      }
+    }
+  });
+
+  it("caps thresholds per side at maxThresholds for every strategy", () => {
+    for (const strategy of ["greedy", "single-expand", "coarse", "full"] as const) {
+      const optimization = runOptimizationSync(TINY_TIMELINE, {
+        mode: "symbols",
+        initialCash: 10_000,
+        symbolWeights: { AAPL: 1 },
+        strategy,
+        minThreshold: 0,
+        maxThreshold: 100,
+        maxThresholds: 1
+      });
+      for (const result of optimization.results) {
+        expect(result.best.buyThresholds.length).toBe(1);
+        expect(result.best.sellThresholds.length).toBe(1);
       }
     }
   });

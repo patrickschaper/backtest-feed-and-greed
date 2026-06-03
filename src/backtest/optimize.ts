@@ -19,6 +19,8 @@ export interface OptimizeConfig {
   strategy?: OptimizerStrategy;
   minThreshold?: number;
   maxThreshold?: number;
+  /** Max thresholds per side the search may use (1-2 via CLI; defaults to 3). */
+  maxThresholds?: number;
   /** Optional progress callback invoked during the heavy search phase. */
   onProgress?: (done: number, total: number) => void;
 }
@@ -308,13 +310,30 @@ export function* subsets(levels: number[], minSize: number, maxSize: number): Ge
 
 /** Counts size-1..3 subsets of `n` levels (C(n,1)+C(n,2)+C(n,3)) without enumerating. */
 export function countSubsetsUpTo3(n: number): number {
+  return countSubsetsUpTo(n, 3);
+}
+
+/** Default cap on thresholds per side when a config omits `maxThresholds`. */
+const DEFAULT_MAX_THRESHOLDS = 3;
+
+/** Resolves the per-side threshold cap for a config, clamped to a sane 1..3 range. */
+function resolveMaxThresholds(config: OptimizeConfig): number {
+  const raw = config.maxThresholds ?? DEFAULT_MAX_THRESHOLDS;
+  return Math.max(1, Math.min(3, Math.floor(raw)));
+}
+
+/** Counts size-1..`maxSize` subsets of `n` levels (sum of C(n,k)) without enumerating. */
+export function countSubsetsUpTo(n: number, maxSize: number): number {
   if (n <= 0) {
     return 0;
   }
-  const c1 = n;
-  const c2 = n >= 2 ? (n * (n - 1)) / 2 : 0;
-  const c3 = n >= 3 ? (n * (n - 1) * (n - 2)) / 6 : 0;
-  return c1 + c2 + c3;
+  let total = 0;
+  let cnk = 1; // C(n,0)
+  for (let k = 1; k <= maxSize && k <= n; k += 1) {
+    cnk = (cnk * (n - k + 1)) / k; // C(n,k) from C(n,k-1)
+    total += cnk;
+  }
+  return total;
 }
 
 /**
@@ -404,6 +423,9 @@ function toWorkerConfig(config: OptimizeConfig): OptimizeConfig {
   }
   if (config.maxThreshold !== undefined) {
     clone.maxThreshold = config.maxThreshold;
+  }
+  if (config.maxThresholds !== undefined) {
+    clone.maxThresholds = config.maxThresholds;
   }
   return clone;
 }
@@ -568,10 +590,11 @@ type ExpandFn = (
  * require a temporarily non-improving addition first.
  */
 const expandGreedy: ExpandFn = (timeline, config, anchor, objective, levels, evalCount) => {
+  const cap = resolveMaxThresholds(config);
   let current = anchor;
   let currentScore = objective.score(current);
 
-  while (current.buyThresholds.length < 3 || current.sellThresholds.length < 3) {
+  while (current.buyThresholds.length < cap || current.sellThresholds.length < cap) {
     let best = current;
     let bestScore = currentScore;
 
@@ -585,7 +608,7 @@ const expandGreedy: ExpandFn = (timeline, config, anchor, objective, levels, eva
       }
     };
 
-    if (current.buyThresholds.length < 3) {
+    if (current.buyThresholds.length < cap) {
       for (const level of levels) {
         if (current.buyThresholds.includes(level)) {
           continue;
@@ -596,7 +619,7 @@ const expandGreedy: ExpandFn = (timeline, config, anchor, objective, levels, eva
         );
       }
     }
-    if (current.sellThresholds.length < 3) {
+    if (current.sellThresholds.length < cap) {
       for (const level of levels) {
         if (current.sellThresholds.includes(level)) {
           continue;
@@ -624,13 +647,14 @@ const expandGreedy: ExpandFn = (timeline, config, anchor, objective, levels, eva
  * cheaper than greedy and biased toward expanding buys before sells.
  */
 const expandSingle: ExpandFn = (timeline, config, anchor, objective, levels, evalCount) => {
+  const cap = resolveMaxThresholds(config);
   let current = anchor;
   let currentScore = objective.score(current);
 
   const expandSide = (side: "buy" | "sell"): void => {
-    for (let step = 0; step < 2; step += 1) {
+    for (let step = 0; step < cap - 1; step += 1) {
       const set = side === "buy" ? current.buyThresholds : current.sellThresholds;
-      if (set.length >= 3) {
+      if (set.length >= cap) {
         break;
       }
       let best = current;
@@ -706,8 +730,9 @@ function runSubsetsSync(
   levels: number[],
   strategy: OptimizerStrategy
 ): Optimization {
-  const buySubsets = [...subsets(levels, 1, 3)];
-  const sellSubsets = [...subsets(levels, 1, 3)];
+  const cap = resolveMaxThresholds(config);
+  const buySubsets = [...subsets(levels, 1, cap)];
+  const sellSubsets = [...subsets(levels, 1, cap)];
   const total = buySubsets.length * sellSubsets.length;
   const step = Math.max(1, Math.min(Math.floor(total / 100), 20_000));
   const tracker = new BestTracker();
@@ -732,8 +757,9 @@ async function runSubsets(
   levels: number[],
   strategy: OptimizerStrategy
 ): Promise<Optimization> {
-  const buySubsets = [...subsets(levels, 1, 3)];
-  const sellSubsetCount = countSubsetsUpTo3(levels.length);
+  const cap = resolveMaxThresholds(config);
+  const buySubsets = [...subsets(levels, 1, cap)];
+  const sellSubsetCount = countSubsetsUpTo(levels.length, cap);
   const total = buySubsets.length * sellSubsetCount;
 
   const workerCount = Math.min(detectWorkerCount(), buySubsets.length);

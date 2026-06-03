@@ -96,12 +96,12 @@ Terminal output is rendered in this order:
 
 Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
 
-- Searches **sets of 1–3 buy thresholds × 1–3 sell thresholds** (including asymmetric counts, e.g. 1 buy + 3 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays.
-- The search space is huge (full integer 1–3 subsets ≈ 29.5B backtests), so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **greedy**):
-  - **greedy** (default): evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach size 3.
-  - **single-expand**: same single-grid anchor, then a single ordered pass — add up to 2 more buy thresholds (full 0–100 scan each), then up to 2 more sell thresholds; anchor fixed.
-  - **coarse**: restrict thresholds to steps of 5 (levels 0,5,…,100 = 21 values) and brute-force ALL size-1..3 buy subsets × size-1..3 sell subsets (≈ 1,561 × 1,561 ≈ 2.44M runs).
-  - **full**: integer resolution (0–100), ALL size-1..3 subsets both sides (≈ 29.5B). Implemented faithfully with a prominent verbose warning; uncapped (will not finish in practice — exists for completeness).
+- Searches **sets of 1–N buy thresholds × 1–N sell thresholds** (including asymmetric counts, e.g. 1 buy + 2 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays. `N` is the per-side cap, set via `--max-thresholds` (integer, `0 < n < 3`, i.e. 1 or 2; default **2**). Direct callers of the optimizer that omit `maxThresholds` fall back to a cap of 3.
+- The search space is huge, so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **greedy**):
+  - **greedy** (default): evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach the cap.
+  - **single-expand**: same single-grid anchor, then a single ordered pass — add buy thresholds up to the cap (full 0–100 scan each), then sell thresholds up to the cap; anchor fixed.
+  - **coarse**: restrict thresholds to steps of 5 (levels 0,5,…,100 = 21 values) and brute-force ALL size-1..cap buy subsets × size-1..cap sell subsets.
+  - **full**: integer resolution (0–100), ALL size-1..cap subsets both sides. Implemented faithfully with a prominent verbose warning; at the max cap it will not finish in practice — exists for completeness.
 - Reuses the existing timeline, mode, initial cash, and symbol weights; only thresholds vary.
 - Selects the best combo for four objectives via parameter-free, ratio-based scoring:
   1. `Max Return` — `totalReturnPct`

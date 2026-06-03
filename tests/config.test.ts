@@ -113,6 +113,30 @@ describe("parseCliConfig", () => {
     );
   });
 
+  it("defaults max thresholds to 2", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.maxThresholds).toBe(2);
+  });
+
+  it("accepts max thresholds of 1 and 2", () => {
+    expect(parse(["node", "cli", "--max-thresholds", "1"]).maxThresholds).toBe(1);
+    expect(parse(["node", "cli", "--max-thresholds", "2"]).maxThresholds).toBe(2);
+  });
+
+  it("rejects max thresholds outside 0 < n < 3", () => {
+    for (const value of ["0", "3", "5", "1.5"]) {
+      expect(() => parse(["node", "cli", "--max-thresholds", value])).toThrow(
+        "--max-thresholds must be an integer greater than 0 and less than 3"
+      );
+    }
+  });
+
+  it("rejects non-numeric max thresholds", () => {
+    expect(() => parse(["node", "cli", "--max-thresholds", "abc"])).toThrow(
+      "--max-thresholds must be a number"
+    );
+  });
+
   // Time format tests
   it("parses time format: plain number as days", () => {
     const config = parse(["node", "cli", "--time", "365"]);

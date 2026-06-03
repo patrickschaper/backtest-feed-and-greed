@@ -549,6 +549,7 @@ export async function run(argv: string[]): Promise<void> {
       initialCash: cli.initialCash,
       symbolWeights: normalizedWeightObj,
       strategy: cli.optimizerStrategy,
+      maxThresholds: cli.maxThresholds,
       onProgress: (done, total) => {
         reporter.percent(total > 0 ? (done / total) * 100 : 0);
       }
