@@ -11,18 +11,17 @@ export interface CliConfig {
   buyThresholds: number[];
   sellThresholds: number[];
   initialCash: number;
-  optimize: boolean;
   verbose: boolean;
 }
 
 interface RawCliConfig {
-  symbol?: string;
+  symbols?: string;
+  portfolio?: boolean;
   time?: string;
   priceProvider?: string;
   buyThreshold?: string;
   sellThreshold?: string;
   initialCash?: string;
-  optimize?: boolean;
   verbose?: boolean;
 }
 
@@ -147,10 +146,17 @@ export function buildProgram(): Command {
   const program = new Command();
   program
     .name("backtest-feed-and-greed")
-    .description("Backtest a Fear & Greed-driven strategy for Trading212 portfolio or a symbol")
+    .description(
+      "Backtest a Fear & Greed-driven strategy for one or more symbols (default MSFT) or your Trading212 pie"
+    )
     .option(
-      "--symbol <symbols>",
-      "Stock ticker(s), comma-separated (e.g. AAPL,MSFT,TSLA); sets symbol mode automatically"
+      "--symbols <symbols>",
+      "Stock ticker(s), comma-separated (e.g. AAPL,MSFT,TSLA); defaults to MSFT"
+    )
+    .option(
+      "--portfolio",
+      "Backtest your Trading212 pie instead of explicit symbols (requires TRADING212_API_TOKEN)",
+      false
     )
     .option(
       "--time <time>",
@@ -173,11 +179,6 @@ export function buildProgram(): Command {
       "45"
     )
     .option("--initial-cash <value>", "Initial portfolio cash", "10000")
-    .option(
-      "--optimize",
-      "Exhaustively search all integer buy/sell thresholds (0-100) and report the best thresholds for 4 objectives",
-      false
-    )
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -210,8 +211,15 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
   }
 
   const periodDays = normalizePeriod(options, referenceDate);
-  const symbols = parseSymbols(options.symbol);
-  const mode: BacktestMode = symbols?.length ? "symbols" : "portfolio";
+  const usePortfolio = Boolean(options.portfolio);
+  const parsedSymbols = parseSymbols(options.symbols);
+
+  if (usePortfolio && parsedSymbols?.length) {
+    throw new Error("cannot combine --portfolio with --symbols");
+  }
+
+  const mode: BacktestMode = usePortfolio ? "portfolio" : "symbols";
+  const symbols = usePortfolio ? undefined : parsedSymbols?.length ? parsedSymbols : ["MSFT"];
 
   return {
     mode,
@@ -221,7 +229,6 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     buyThresholds,
     sellThresholds,
     initialCash,
-    optimize: Boolean(options.optimize),
     verbose: Boolean(options.verbose)
   };
 }

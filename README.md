@@ -4,17 +4,17 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 
 ## Features
 
-- **Portfolio mode** (default): backtests all open Trading212 holdings weighted by capital allocation
-- **Symbol mode**: one or more tickers via `--symbol AAPL` or comma-separated `--symbol AAPL,MSFT,TSLA`
+- **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
+- **Portfolio mode** (`--portfolio`): backtests all open Trading212 holdings weighted by capital allocation (requires `TRADING212_API_TOKEN`)
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
-- **Threshold optimizer** (`--optimize`): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives — multi-threaded across all CPU cores
+- **Threshold optimizer** (always on): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives — multi-threaded across all CPU cores
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
 - **Terminal output:**
   - ASCII equity curve (strategy in yellow, buy & hold in cyan, Fear & Greed index in grey)
   - Colored legend below the chart
-  - Performance table with **Buy & Hold** (baseline) and **Manual strategy** rows; the Manual strategy row shows inline +/- deltas (colored) vs Buy & Hold on Final Equity, Total Return, and CAGR. With `--optimize`, the optimizer's best thresholds per objective are appended as extra rows in the same table.
+  - Performance table with **Buy & Hold** (baseline) and **Manual strategy** rows; the Manual strategy row shows inline +/- deltas (colored) vs Buy & Hold on Final Equity, Total Return, and CAGR. The optimizer's best thresholds per objective are always appended as extra rows in the same table.
   - CAGR note below the table
 
 ## Setup
@@ -71,35 +71,32 @@ npm run dev -- --help
 Examples:
 
 ```bash
-# Default 1-year portfolio backtest (all open Trading212 positions)
+# Default 1-year backtest (MSFT)
 npm run dev --
 
-# Portfolio backtest over 3 years with custom thresholds
-npm run dev -- --time 3y --buy-threshold 60 --sell-threshold 40
+# Single-stock backtest over a custom range with custom thresholds
+npm run dev -- --symbols AAPL --time 3y --buy-threshold 60 --sell-threshold 40
 
 # Multiple buy/sell thresholds (trade at each crossing level)
 npm run dev -- --buy-threshold 55,65 --sell-threshold 45,35
 
-# Portfolio backtest for calendar 2 months
+# Calendar 2-month backtest
 npm run dev -- --time 2m
 
 # Force Yahoo-only pricing
 npm run dev -- --price-provider yahoo
 
-# Single-stock backtest
-npm run dev -- --symbol AAPL --time 52w
-
 # Multi-symbol backtest (equal weight)
-npm run dev -- --symbol AAPL,MSFT,TSLA --time 2y
+npm run dev -- --symbols AAPL,MSFT,TSLA --time 2y
 
-# Optimize: find the best buy/sell thresholds across 4 objectives
-npm run dev -- --symbol AAPL --time 2y --optimize
+# Portfolio backtest (all open Trading212 positions; requires TRADING212_API_TOKEN)
+npm run dev -- --portfolio --time 2y
 ```
 
 ## Threshold Optimization
 
-Pass `--optimize` to exhaustively backtest every integer buy/sell threshold
-pair (buy ∈ 0–100, sell ∈ 0–100 → 10,201 combinations) and report the best
+Every run exhaustively backtests every integer buy/sell threshold
+pair (buy ∈ 0–100, sell ∈ 0–100 → 10,201 combinations) and reports the best
 thresholds for four objectives. Scoring is ratio-based and parameter-free; for
 combos with a non-positive total return the raw return is used so the optimizer
 picks the "least bad" result rather than a misleading ratio.

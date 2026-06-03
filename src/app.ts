@@ -30,6 +30,8 @@ import {
 } from "./utils/graph.js";
 import { createLogger } from "./utils/logger.js";
 
+const STRATEGY_LABEL = "Manual strategy";
+
 function toDateMap<T extends { date: string }>(rows: T[]): Map<string, T> {
   const map = new Map<string, T>();
   for (const row of rows) {
@@ -195,7 +197,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   sortableRows.push({
     totalReturnPct: strategySummary.totalReturnPct,
     cells: [
-      tableWhite("Manual strategy"),
+      tableWhite(STRATEGY_LABEL),
       tableWhite(buyCell),
       tableWhite(sellCell),
       tableWhite(result.initialCash.toFixed(2)),
@@ -375,12 +377,12 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const C_SELL_MARKER = "\u001b[91m"; // red
 
   const legend = fearGreedCompressed
-    ? `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}, ${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`
-    : `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
+    ? `Legend: ${C_STRATEGY}${STRATEGY_LABEL}${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}, ${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`
+    : `Legend: ${C_STRATEGY}${STRATEGY_LABEL}${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
 
   const optimizerNote =
     optimization && optimization.results.length > 0
-      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured Manual strategy run.`
+      ? `Optimizer rows show the best single buy/sell pair per objective from ${optimization.combosTested} exhaustive combinations; they do not change the featured ${STRATEGY_LABEL} run.`
       : undefined;
 
   return [
@@ -389,7 +391,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     `Mode: ${result.mode}`,
     `Date range: ${result.startDate} -> ${result.endDate} (${result.timelineDays} trading days)`,
     "",
-    "Equity Curve (Strategy vs Buy & Hold)",
+    `Equity Curve (${STRATEGY_LABEL} vs Buy & Hold)`,
     framedChart,
     legend,
     "",
@@ -408,7 +410,7 @@ function resolveSymbolsAndWeights(
 ) {
   if (mode === "symbols") {
     if (!symbols || symbols.length === 0) {
-      throw new Error("Symbol mode requires at least one --symbol value");
+      throw new Error("Symbol mode requires at least one --symbols value");
     }
     const weights: Record<string, number> = {};
     for (const sym of symbols) {
@@ -540,17 +542,13 @@ export async function run(argv: string[]): Promise<void> {
       normalizedWeightObj[item.symbol] = item.weight / totalWeight;
     }
 
-    let optimization: Optimization | undefined;
-
-    if (cli.optimize) {
-      logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
-      optimization = await runOptimization(timeline, {
-        mode: cli.mode,
-        initialCash: cli.initialCash,
-        symbolWeights: normalizedWeightObj
-      });
-      logger.verbose(`Optimization tested ${optimization.combosTested} threshold combinations`);
-    }
+    logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
+    const optimization = await runOptimization(timeline, {
+      mode: cli.mode,
+      initialCash: cli.initialCash,
+      symbolWeights: normalizedWeightObj
+    });
+    logger.verbose(`Optimization tested ${optimization.combosTested} threshold combinations`);
 
     const result = runBacktest(timeline, {
       mode: cli.mode,

@@ -62,6 +62,8 @@ feat: add Delta row and update docs
 ## Backtest assumptions (v1)
 
 - Signals are generated from daily Fear & Greed values.
+- **Symbols mode is the default** (defaults to `MSFT` when no `--symbols` given). Trading212 portfolio mode is opt-in via `--portfolio` (mutually exclusive with `--symbols`).
+- Threshold optimization always runs (there is no `--optimize` flag).
 - Always buy on backtest day 1.
 - Multiple buy and sell thresholds are supported (comma-separated via CLI).
 - Buy only on strict upward threshold crossing: `previous < threshold` and `current > threshold` (evaluated for each buy threshold).
@@ -79,20 +81,20 @@ Terminal output is rendered in this order:
 2. **Mode / date range** — `Mode: symbols | portfolio` and `Date range: YYYY-MM-DD -> YYYY-MM-DD (N trading days)`
 3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; three series:
    - Fear & Greed Index (grey)
-   - Strategy equity (yellow)
+   - Manual strategy equity (yellow)
    - Buy & Hold equity (cyan)
 4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
 5. **Performance table** — one unified table. Columns: Scenario, Buy, Sell, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. Rows:
    - `Buy & Hold` (baseline, always pinned to the top; Buy/Sell shown as `-`)
    - `Manual strategy` (uses the given CLI/default thresholds; appends an inline delta vs Buy & Hold — ` (Δ±X)` with neutral-colored brackets, a leading delta sign (Δ), and a +/- sign + number colored green (positive) / red (negative) / neutral (zero) — on Final Equity, Total Return, and CAGR)
-   - With `--optimize`: one row per objective (`Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`), each showing its best Buy/Sell thresholds and metrics with the same inline ` (Δ±X)` deltas vs Buy & Hold on Final Equity, Total Return, and CAGR
-   - All rows **except `Buy & Hold`** (i.e. `Manual strategy` + any optimizer rows) are sorted by **Total Return, descending**
+   - One row per objective (always shown): `Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`, each showing its best Buy/Sell thresholds and metrics with the same inline ` (Δ±X)` deltas vs Buy & Hold on Final Equity, Total Return, and CAGR
+   - All rows **except `Buy & Hold`** (i.e. `Manual strategy` + the optimizer rows) are sorted by **Total Return, descending**
 6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
-7. **Optimizer note** (only with `--optimize`) — directly below the CAGR note; explains optimizer rows show the best buy/sell pair per objective and don't change the featured run
+7. **Optimizer note** — directly below the CAGR note; explains optimizer rows show the best buy/sell pair per objective and don't change the featured run
 
-## Threshold optimization (`--optimize`)
+## Threshold optimization
 
-Implemented in `src/backtest/optimize.ts`.
+Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
 
 - Exhaustively backtests every integer buy/sell threshold pair (buy 0–100, sell 0–100 = 10,201 combos) by reusing `runBacktest` with single-element threshold arrays.
 - Reuses the existing timeline, mode, initial cash, and symbol weights; only thresholds vary.
@@ -103,7 +105,7 @@ Implemented in `src/backtest/optimize.ts`.
   4. `Return / DD × Win Rate` — combination of 2 and 3
 - **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
 - **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
-- The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds. With `--optimize`, the four objective winners are appended as extra rows in that same performance table (alongside the Manual strategy row) — informational, they do not change the featured run.
+- The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds. The four objective winners are always appended as extra rows in that same performance table (alongside the Manual strategy row) — informational, they do not change the featured run.
 - **Multi-threaded:** the 10,201-combo grid is split across all CPU cores via `node:worker_threads` (`src/backtest/optimizeWorker.ts`), giving a large speedup on multi-core machines. Cross-platform and any-CPU safe:
   - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1.
   - The worker is loaded via a `file://` URL object (not a path string) so it resolves on Windows/macOS/Linux, in both `tsx` dev (`.ts`) and built `dist` (`.js`).

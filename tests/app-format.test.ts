@@ -65,7 +65,7 @@ function createResult(): BacktestResult {
 describe("formatResult", () => {
   it("renders merged graph above table", () => {
     const output = formatResult(createResult());
-    const graphIndex = output.indexOf("Equity Curve (Strategy vs Buy & Hold)");
+    const graphIndex = output.indexOf("Equity Curve (Manual strategy vs Buy & Hold)");
     const timeAxisIndex = output.indexOf("01-01");
     const tableIndex = output.indexOf("Scenario");
     expect(graphIndex).toBeGreaterThan(-1);
@@ -85,7 +85,7 @@ describe("formatResult", () => {
 
   it("places legend under chart (before table) and CAGR note under table", () => {
     const output = formatResult(createResult());
-    const chartHeaderIndex = output.indexOf("Equity Curve (Strategy vs Buy & Hold)");
+    const chartHeaderIndex = output.indexOf("Equity Curve (Manual strategy vs Buy & Hold)");
     const legendIndex = output.indexOf("Legend:");
     const tableIndex = output.indexOf("Scenario");
     const cagrNoteIndex = output.indexOf("CAGR = Compound Annual Growth Rate.");

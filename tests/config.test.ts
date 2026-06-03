@@ -40,20 +40,20 @@ describe("parseCliConfig", () => {
     );
   });
 
-  it("switches to symbols mode when symbol is provided", () => {
-    const config = parse(["node", "cli", "--symbol", "aapl"]);
+  it("switches to symbols mode when symbols is provided", () => {
+    const config = parse(["node", "cli", "--symbols", "aapl"]);
     expect(config.mode).toBe("symbols");
     expect(config.symbols).toEqual(["AAPL"]);
   });
 
   it("parses comma-separated symbols", () => {
-    const config = parse(["node", "cli", "--symbol", "aapl,msft,tsla"]);
+    const config = parse(["node", "cli", "--symbols", "aapl,msft,tsla"]);
     expect(config.mode).toBe("symbols");
     expect(config.symbols).toEqual(["AAPL", "MSFT", "TSLA"]);
   });
 
   it("trims whitespace in symbol list", () => {
-    const config = parse(["node", "cli", "--symbol", " aapl , msft "]);
+    const config = parse(["node", "cli", "--symbols", " aapl , msft "]);
     expect(config.symbols).toEqual(["AAPL", "MSFT"]);
   });
 
@@ -70,16 +70,6 @@ describe("parseCliConfig", () => {
   it("parses short verbose flag -v", () => {
     const config = parse(["node", "cli", "-v"]);
     expect(config.verbose).toBe(true);
-  });
-
-  it("parses optimize flag", () => {
-    const config = parse(["node", "cli", "--optimize"]);
-    expect(config.optimize).toBe(true);
-  });
-
-  it("defaults optimize to false", () => {
-    const config = parse(["node", "cli"]);
-    expect(config.optimize).toBe(false);
   });
 
   it("defaults price provider to hybrid", () => {
@@ -169,8 +159,21 @@ describe("parseCliConfig", () => {
     expect(() => parse(["node", "cli", "--time", "abc"])).toThrow("Invalid time format");
   });
 
-  it("defaults mode to portfolio when symbol is not provided", () => {
+  it("defaults to symbols mode with MSFT when nothing is provided", () => {
     const config = parse(["node", "cli"]);
+    expect(config.mode).toBe("symbols");
+    expect(config.symbols).toEqual(["MSFT"]);
+  });
+
+  it("switches to portfolio mode with --portfolio", () => {
+    const config = parse(["node", "cli", "--portfolio"]);
     expect(config.mode).toBe("portfolio");
+    expect(config.symbols).toBeUndefined();
+  });
+
+  it("rejects combining --portfolio with --symbols", () => {
+    expect(() => parse(["node", "cli", "--portfolio", "--symbols", "AAPL"])).toThrow(
+      "cannot combine --portfolio with --symbols"
+    );
   });
 });
