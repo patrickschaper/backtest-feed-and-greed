@@ -60,7 +60,7 @@ describe("graph sizing", () => {
     const strategy = [100, 130, 140, 120];
     const buyAndHold = [140, 120, 100, 90];
     const graph = renderMergedEquityGraph(strategy, buyAndHold, true, 10);
-    expect(graph).toContain("\u001B[32m"); // green for strategy
+    expect(graph).toContain("\u001B[93m"); // light yellow for strategy
     expect(graph).toContain("\u001B[");
   });
 
@@ -68,7 +68,7 @@ describe("graph sizing", () => {
     const strategy = [100, 110, 120, 130];
     const buyAndHold = [100, 110, 120, 130];
     const graph = renderMergedEquityGraph(strategy, buyAndHold, true, 10);
-    expect(graph).toContain("\u001B[32m"); // green for strategy
+    expect(graph).toContain("\u001B[93m"); // light yellow for strategy
   });
 
   it("renders a time axis with start and end labels", () => {

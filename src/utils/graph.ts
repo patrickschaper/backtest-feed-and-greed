@@ -7,9 +7,9 @@ const MIN_GRAPH_WIDTH = 20;
 const GRAPH_HORIZONTAL_PADDING = 22;
 
 // Simple standard ANSI colors (16-color, work on every terminal)
-const COLOR_STRATEGY = "\u001b[32m"; // green
-const COLOR_BUY_AND_HOLD = "\u001b[33m"; // yellow
-const COLOR_FEAR_AND_GREED = "\u001b[36m"; // cyan
+const COLOR_STRATEGY = "\u001b[93m"; // light yellow
+const COLOR_BUY_AND_HOLD = "\u001b[94m"; // light blue
+const COLOR_FEAR_AND_GREED = "\u001b[90m"; // grey
 
 export function resolveGraphWidth(terminalColumns?: number): number {
   if (!terminalColumns || terminalColumns <= 0) {
