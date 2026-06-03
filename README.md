@@ -14,7 +14,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Terminal output:**
   - ASCII equity curve (strategy in yellow, buy & hold in cyan, Fear & Greed index in grey)
   - Colored legend below the chart
-  - Performance table with **Buy & Hold** (baseline) and **Manual strategy** rows; the Manual strategy row shows inline +/- deltas (colored) vs Buy & Hold on Final Equity, Total Return, and CAGR. The optimizer's best thresholds per objective are always appended as extra rows in the same table.
+  - Performance table with **Buy & Hold** (baseline) and **Manual strategy** rows. The optimizer's best thresholds per objective are always appended as extra rows in the same table.
   - CAGR note below the table
 
 ## Setup

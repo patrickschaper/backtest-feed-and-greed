@@ -145,16 +145,6 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
     return tableWhite(text);
   };
-  // Appends a bracketed, signed, colored delta after a value. Brackets stay neutral
-  // (white); the delta sign (Δ), +/- sign and number are colored from the rounded
-  // value (a tiny negative that rounds to 0.00 renders neutral).
-  const deltaSuffix = (value: number, formatter: (n: number) => string): string => {
-    const rounded = Number(value.toFixed(2));
-    const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-    const inner = `\u0394${sign}${formatter(Math.abs(rounded))}`;
-    const code = rounded > 0 ? "32" : rounded < 0 ? NEGATIVE_COLOR : "37";
-    return ` ${tableWhite("(")}${colorize(inner, code)}${tableWhite(")")}`;
-  };
   const row = (
     label: string,
     summary: BacktestPerformanceSummary,
@@ -188,13 +178,11 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     winRatePct: result.winRatePct
   };
 
-  const delta = result.comparison.delta;
   // Sortable rows (everything except the Buy & Hold baseline), each paired with its
   // total return so they can be ordered descending below the baseline.
   const sortableRows: Array<{ totalReturnPct: number; cells: Array<string | number> }> = [];
 
-  // Strategy row mirrors `row` but appends inline deltas (vs Buy & Hold) on the
-  // comparable columns: Final Equity, Total Return, CAGR.
+  // Strategy row mirrors `row` using the given (CLI/default) buy/sell thresholds.
   sortableRows.push({
     totalReturnPct: strategySummary.totalReturnPct,
     cells: [
@@ -202,12 +190,9 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       tableWhite(buyCell),
       tableWhite(sellCell),
       tableWhite(result.initialCash.toFixed(2)),
-      tableWhite(strategySummary.finalEquity.toFixed(2)) +
-        deltaSuffix(delta.finalEquity, (n) => n.toFixed(2)),
-      colorizeSignedPercent(strategySummary.totalReturnPct) +
-        deltaSuffix(delta.totalReturnPct, (n) => `${n.toFixed(2)}%`),
-      colorizeSignedPercent(strategySummary.cagrPct) +
-        deltaSuffix(delta.cagrPct, (n) => `${n.toFixed(2)}%`),
+      tableWhite(strategySummary.finalEquity.toFixed(2)),
+      colorizeSignedPercent(strategySummary.totalReturnPct),
+      colorizeSignedPercent(strategySummary.cagrPct),
       tableWhite(`${strategySummary.maxDrawdownPct.toFixed(2)}%`),
       tableWhite(strategySummary.tradeCount.toString()),
       tableWhite(`${strategySummary.winRatePct.toFixed(2)}%`)
@@ -245,22 +230,17 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
   });
 
-  // Optimizer rows: best single buy/sell pair per objective. Each mirrors the
-  // Strategy row's inline deltas (vs Buy & Hold).
+  // Optimizer rows: best buy/sell threshold set per objective.
   const optimization = displayContext?.optimization;
   if (optimization && optimization.results.length > 0) {
-    const baseline = result.comparison.buyAndHold;
     const optRow = (label: string, best: ComboMetrics): Array<string | number> => [
       tableWhite(label),
       tableWhite(thresholdCell(best.buyThresholds)),
       tableWhite(thresholdCell(best.sellThresholds)),
       tableWhite(result.initialCash.toFixed(2)),
-      tableWhite(best.finalEquity.toFixed(2)) +
-        deltaSuffix(best.finalEquity - baseline.finalEquity, (n) => n.toFixed(2)),
-      colorizeSignedPercent(best.totalReturnPct) +
-        deltaSuffix(best.totalReturnPct - baseline.totalReturnPct, (n) => `${n.toFixed(2)}%`),
-      colorizeSignedPercent(best.cagrPct) +
-        deltaSuffix(best.cagrPct - baseline.cagrPct, (n) => `${n.toFixed(2)}%`),
+      tableWhite(best.finalEquity.toFixed(2)),
+      colorizeSignedPercent(best.totalReturnPct),
+      colorizeSignedPercent(best.cagrPct),
       tableWhite(`${best.maxDrawdownPct.toFixed(2)}%`),
       tableWhite(best.tradeCount.toString()),
       tableWhite(`${best.winRatePct.toFixed(2)}%`)

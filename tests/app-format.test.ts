@@ -105,11 +105,9 @@ describe("formatResult", () => {
     expect(buyHoldIndex).toBeLessThan(strategyIndex);
   });
 
-  it("appends inline signed deltas to the Strategy row", () => {
+  it("does not render inline deltas on the Strategy row", () => {
     const output = formatResult(createResult());
-    // Fixture deltas: finalEquity 100, totalReturnPct 1, cagrPct 1
-    expect(output).toContain("(\u0394+100.00)");
-    expect(output).toContain("(\u0394+1.00%)");
+    expect(output).not.toContain("\u0394");
   });
 
   it("includes Buy and Sell columns and shows given thresholds on the Strategy row", () => {
@@ -215,7 +213,7 @@ describe("formatResult", () => {
     expect(strategy).toBeLessThan(low);
   });
 
-  it("appends inline deltas (vs Buy & Hold) to optimizer rows", () => {
+  it("does not render inline deltas on optimizer rows", () => {
     const optimization: Optimization = {
       combosTested: 10201,
       strategy: "greedy",
@@ -238,11 +236,9 @@ describe("formatResult", () => {
         }
       ]
     };
-    // Fixture Buy & Hold: finalEquity 10300, return 3%, cagr 3%
     const output = formatResult(createResult(), { optimization });
-    expect(output).toContain("(\u0394+900.00)");
-    expect(output).toContain("(\u0394+9.00%)");
-    expect(output).toContain("(\u0394+3.00%)");
+    expect(output).toContain("Max Return");
+    expect(output).not.toContain("\u0394");
   });
 
   it("renders symbol table before chart when symbolInfos provided", () => {
