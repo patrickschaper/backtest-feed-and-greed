@@ -77,7 +77,7 @@ feat: add Delta row and update docs
 
 Terminal output is rendered in this order:
 
-1. **Symbol table** — ticker, name, exchange, price range, allocated capital, weight % (omitted in portfolio mode with a single implicit symbol)
+1. **Symbol table** — ticker, name, exchange, currency, source, start price, allocated capital, weight %, and end price (last column, with the gain/loss % vs. start price in brackets — the percentage is green/red by sign, the brackets keep the default color). Omitted in portfolio mode with a single implicit symbol.
 2. **Mode / date range** — `Mode: symbols | portfolio` and `Date range: YYYY-MM-DD -> YYYY-MM-DD (N trading days)`
 3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; series drawn bottom → top (later series render on top where they overlap):
    - Fear & Greed Index (grey)

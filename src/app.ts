@@ -338,13 +338,26 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         "Currency",
         "Source",
         "Start Price",
-        "End Price",
         "Capital",
-        "Weight"
+        "Weight",
+        "End Price"
       ],
       colAligns: ["left", "left", "left", "left", "left", "right", "right", "right", "right"],
       style: { head: [], border: [] }
     });
+    // End price cell shows the close with its gain/loss vs. start in brackets; only the
+    // percentage is green/red, the surrounding brackets keep the default color.
+    const endPriceCell = (startPrice: number, endPrice: number): string => {
+      const gainLossPct = startPrice > 0 ? ((endPrice - startPrice) / startPrice) * 100 : 0;
+      const pctText = `${gainLossPct > 0 ? "+" : ""}${gainLossPct.toFixed(2)}%`;
+      const coloredPct =
+        gainLossPct > 0
+          ? colorize(pctText, "32")
+          : gainLossPct < 0
+            ? colorize(pctText, NEGATIVE_COLOR)
+            : pctText;
+      return `${endPrice.toFixed(2)} (${coloredPct})`;
+    };
     for (const info of displayContext.symbolInfos) {
       symTable.push([
         info.symbol,
@@ -353,9 +366,9 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         info.currency,
         info.source,
         info.startPrice.toFixed(2),
-        info.endPrice.toFixed(2),
         info.capitalAllocated.toFixed(2),
-        `${info.capitalWeightPct.toFixed(1)}%`
+        `${info.capitalWeightPct.toFixed(1)}%`,
+        endPriceCell(info.startPrice, info.endPrice)
       ]);
     }
     const totalCapital = displayContext.symbolInfos.reduce(
@@ -373,9 +386,9 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       "",
       "",
       "",
-      "",
       totalCapital.toFixed(2),
-      `${totalWeightPct.toFixed(1)}%`
+      `${totalWeightPct.toFixed(1)}%`,
+      ""
     ]);
     symbolTableBlock = ["", "Holdings", symTable.toString()].join("\n");
   }
