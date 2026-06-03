@@ -1,6 +1,8 @@
 import { config as loadEnv } from "dotenv";
 import Table from "cli-table3";
 import { runBacktest } from "./backtest/engine.js";
+import { runOptimization } from "./backtest/optimize.js";
+import type { OptimizationResult } from "./backtest/optimize.js";
 import { parseCliConfig } from "./config.js";
 import { fetchFearGreedHistory } from "./data/fearGreedProvider.js";
 import { createPriceOrchestrator } from "./data/priceProvider.js";
@@ -119,6 +121,61 @@ function buildTimeline(
 
 export interface DisplayContext {
   symbolInfos?: SymbolInfo[];
+}
+
+export function formatOptimizationTable(
+  results: OptimizationResult[],
+  combosTested: number
+): string {
+  const useColors = Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
+  const colorize = (value: string, colorCode: string): string =>
+    useColors ? `\u001B[${colorCode}m${value}\u001B[0m` : value;
+  const white = (value: string): string => colorize(value, "37");
+  const signed = (value: number): string => {
+    const text = `${value.toFixed(2)}%`;
+    if (value > 0) return colorize(text, "32");
+    if (value < 0) return colorize(text, "91");
+    return white(text);
+  };
+
+  const table = new Table({
+    head: [
+      "Objective",
+      "Considers",
+      "Buy",
+      "Sell",
+      "Total Return",
+      "CAGR",
+      "Max Drawdown",
+      "Win Rate",
+      "Trades"
+    ],
+    colAligns: ["left", "left", "right", "right", "right", "right", "right", "right", "right"],
+    style: {
+      head: ["white"],
+      border: ["white"]
+    }
+  });
+
+  for (const result of results) {
+    table.push([
+      white(result.label),
+      white(result.considers),
+      white(result.best.buyThreshold.toString()),
+      white(result.best.sellThreshold.toString()),
+      signed(result.best.totalReturnPct),
+      signed(result.best.cagrPct),
+      white(`${result.best.maxDrawdownPct.toFixed(2)}%`),
+      white(`${result.best.winRatePct.toFixed(2)}%`),
+      white(result.best.tradeCount.toString())
+    ]);
+  }
+
+  return [
+    `Optimization Results (exhaustive search of ${combosTested} threshold combinations)`,
+    table.toString(),
+    "Featured chart above uses the 'Return / DD x Win Rate' (combined) best thresholds."
+  ].join("\n");
 }
 
 export function formatResult(result: BacktestResult, displayContext?: DisplayContext): string {
@@ -470,10 +527,32 @@ export async function run(argv: string[]): Promise<void> {
       normalizedWeightObj[item.symbol] = item.weight / totalWeight;
     }
 
+    let optimization: ReturnType<typeof runOptimization> | undefined;
+    let buyThresholds = cli.buyThresholds;
+    let sellThresholds = cli.sellThresholds;
+
+    if (cli.optimize) {
+      logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
+      optimization = runOptimization(timeline, {
+        mode: cli.mode,
+        initialCash: cli.initialCash,
+        symbolWeights: normalizedWeightObj
+      });
+      logger.verbose(`Optimization tested ${optimization.combosTested} threshold combinations`);
+      const combinedBest = optimization.results.find((r) => r.key === "combined");
+      if (combinedBest) {
+        buyThresholds = [combinedBest.best.buyThreshold];
+        sellThresholds = [combinedBest.best.sellThreshold];
+        logger.verbose(
+          `Featuring combined-objective best thresholds: buy=${buyThresholds[0]}, sell=${sellThresholds[0]}`
+        );
+      }
+    }
+
     const result = runBacktest(timeline, {
       mode: cli.mode,
-      buyThresholds: cli.buyThresholds,
-      sellThresholds: cli.sellThresholds,
+      buyThresholds,
+      sellThresholds,
       initialCash: cli.initialCash,
       symbolWeights: normalizedWeightObj
     });
@@ -512,6 +591,11 @@ export async function run(argv: string[]): Promise<void> {
     });
 
     process.stdout.write(`${formatResult(result, { symbolInfos })}\n`);
+    if (optimization) {
+      process.stdout.write(
+        `\n${formatOptimizationTable(optimization.results, optimization.combosTested)}\n`
+      );
+    }
   } catch (error) {
     logger.verbose("Failed during data fetching or backtesting", error);
     throw error;

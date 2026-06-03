@@ -7,6 +7,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Portfolio mode** (default): backtests all open Trading212 holdings weighted by capital allocation
 - **Symbol mode**: one or more tickers via `--symbol AAPL` or comma-separated `--symbol AAPL,MSFT,TSLA`
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
+- **Threshold optimizer** (`--optimize`): exhaustively searches all integer buy/sell thresholds (0–100) and reports the best thresholds under four objectives
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
@@ -90,7 +91,33 @@ npm run dev -- --symbol AAPL --time 52w
 
 # Multi-symbol backtest (equal weight)
 npm run dev -- --symbol AAPL,MSFT,TSLA --time 2y
+
+# Optimize: find the best buy/sell thresholds across 4 objectives
+npm run dev -- --symbol AAPL --time 2y --optimize
 ```
+
+## Threshold Optimization
+
+Pass `--optimize` to exhaustively backtest every integer buy/sell threshold
+pair (buy ∈ 0–100, sell ∈ 0–100 → 10,201 combinations) and report the best
+thresholds for four objectives. Scoring is ratio-based and parameter-free; for
+combos with a non-positive total return the raw return is used so the optimizer
+picks the "least bad" result rather than a misleading ratio.
+
+| Objective              | Considers           | Score (positive-return combos)                |
+| ---------------------- | ------------------- | --------------------------------------------- |
+| Max Return             | return only         | `totalReturn`                                 |
+| Return / Drawdown      | low drawdown        | `totalReturn / maxDrawdown`                   |
+| Return × Win Rate      | win rate            | `totalReturn × (winRate / 100)`               |
+| Return / DD × Win Rate | drawdown + win rate | `(totalReturn / maxDrawdown) × (winRate/100)` |
+
+A zero-drawdown positive-return combo is treated as ideal for the drawdown
+objectives. Score ties break deterministically by higher total return, then
+lower drawdown, then higher CAGR.
+
+Output: the equity chart and performance table feature the **combined**
+(`Return / DD × Win Rate`) best thresholds, followed by an **Optimization
+Results** table listing all four objective winners.
 
 ## Strategy Logic
 

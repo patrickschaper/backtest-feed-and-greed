@@ -11,6 +11,7 @@ export interface CliConfig {
   buyThresholds: number[];
   sellThresholds: number[];
   initialCash: number;
+  optimize: boolean;
   verbose: boolean;
 }
 
@@ -21,6 +22,7 @@ interface RawCliConfig {
   buyThreshold?: string;
   sellThreshold?: string;
   initialCash?: string;
+  optimize?: boolean;
   verbose?: boolean;
 }
 
@@ -171,6 +173,11 @@ export function buildProgram(): Command {
       "45"
     )
     .option("--initial-cash <value>", "Initial portfolio cash", "10000")
+    .option(
+      "--optimize",
+      "Exhaustively search all integer buy/sell thresholds (0-100) and report the best thresholds for 4 objectives",
+      false
+    )
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -214,6 +221,7 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     buyThresholds,
     sellThresholds,
     initialCash,
+    optimize: Boolean(options.optimize),
     verbose: Boolean(options.verbose)
   };
 }

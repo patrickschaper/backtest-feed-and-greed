@@ -72,6 +72,16 @@ describe("parseCliConfig", () => {
     expect(config.verbose).toBe(true);
   });
 
+  it("parses optimize flag", () => {
+    const config = parse(["node", "cli", "--optimize"]);
+    expect(config.optimize).toBe(true);
+  });
+
+  it("defaults optimize to false", () => {
+    const config = parse(["node", "cli"]);
+    expect(config.optimize).toBe(false);
+  });
+
   it("defaults price provider to hybrid", () => {
     const config = parse(["node", "cli"]);
     expect(config.priceProvider).toBe("hybrid");

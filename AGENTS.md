@@ -84,6 +84,22 @@ Terminal output is rendered in this order:
 4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
 5. **Performance table** — three rows: `Strategy`, `Buy & Hold`, `Delta`; columns: Scenario, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate
 6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
+7. **Optimization table** (only with `--optimize`) — appended after the CAGR note; see below
+
+## Threshold optimization (`--optimize`)
+
+Implemented in `src/backtest/optimize.ts`.
+
+- Exhaustively backtests every integer buy/sell threshold pair (buy 0–100, sell 0–100 = 10,201 combos) by reusing `runBacktest` with single-element threshold arrays.
+- Reuses the existing timeline, mode, initial cash, and symbol weights; only thresholds vary.
+- Selects the best combo for four objectives via parameter-free, ratio-based scoring:
+  1. `Max Return` — `totalReturnPct`
+  2. `Return / Drawdown` — `totalReturnPct / maxDrawdownPct` (∞ when drawdown is 0)
+  3. `Return × Win Rate` — `totalReturnPct × (winRatePct / 100)`
+  4. `Return / DD × Win Rate` — combination of 2 and 3
+- **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
+- **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
+- The featured chart + performance table use the **combined** (objective 4) best thresholds; the optimization table lists all four winners.
 
 ## Trading212 API Integration
 
