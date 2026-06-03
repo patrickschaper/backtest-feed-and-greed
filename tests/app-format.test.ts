@@ -125,7 +125,7 @@ describe("formatResult", () => {
     expect(tableSlice).toContain("45");
   });
 
-  it("appends optimizer rows below Strategy only when optimization is provided", () => {
+  it("adds optimizer rows only when optimization is provided, sorted by total return", () => {
     const withoutOpt = formatResult(createResult());
     expect(withoutOpt).not.toContain("Max Return");
     expect(withoutOpt).not.toContain("Optimizer rows");
@@ -153,12 +153,64 @@ describe("formatResult", () => {
     };
     const withOpt = formatResult(createResult(), { optimization });
     const tableSlice = withOpt.slice(withOpt.lastIndexOf("Scenario"));
+    // Fixture: Strategy return 4%, Max Return 12% -> Max Return sorts above Strategy.
     const strategyIndex = tableSlice.indexOf("Strategy");
     const optIndex = tableSlice.indexOf("Max Return");
-    expect(optIndex).toBeGreaterThan(strategyIndex);
+    expect(optIndex).toBeGreaterThan(-1);
+    expect(optIndex).toBeLessThan(strategyIndex);
     expect(tableSlice).toContain("11200.00");
     expect(withOpt).toContain("Optimizer rows");
     expect(withOpt).toContain("10201 exhaustive combinations");
+  });
+
+  it("pins Buy & Hold on top and sorts other rows by total return descending", () => {
+    const optimization: Optimization = {
+      combosTested: 10201,
+      results: [
+        {
+          key: "returnWinRate",
+          label: "Low Opt",
+          considers: "win rate",
+          score: 1,
+          best: {
+            buyThreshold: 20,
+            sellThreshold: 40,
+            finalEquity: 10050,
+            totalReturnPct: 0.5,
+            cagrPct: 0.5,
+            maxDrawdownPct: 3,
+            winRatePct: 60,
+            tradeCount: 2
+          }
+        },
+        {
+          key: "return",
+          label: "High Opt",
+          considers: "return only",
+          score: 50,
+          best: {
+            buyThreshold: 25,
+            sellThreshold: 55,
+            finalEquity: 15000,
+            totalReturnPct: 50,
+            cagrPct: 20,
+            maxDrawdownPct: 10,
+            winRatePct: 80,
+            tradeCount: 5
+          }
+        }
+      ]
+    };
+    const output = formatResult(createResult(), { optimization });
+    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    // Buy & Hold (3%) pinned top; then High Opt (50%) > Strategy (4%) > Low Opt (0.5%).
+    const buyHold = tableSlice.indexOf("Buy & Hold");
+    const high = tableSlice.indexOf("High Opt");
+    const strategy = tableSlice.indexOf("Strategy");
+    const low = tableSlice.indexOf("Low Opt");
+    expect(buyHold).toBeLessThan(high);
+    expect(high).toBeLessThan(strategy);
+    expect(strategy).toBeLessThan(low);
   });
 
   it("appends inline deltas (vs Buy & Hold) to optimizer rows", () => {

@@ -185,23 +185,30 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   };
 
   const delta = result.comparison.delta;
+  // Sortable rows (everything except the Buy & Hold baseline), each paired with its
+  // total return so they can be ordered descending below the baseline.
+  const sortableRows: Array<{ totalReturnPct: number; cells: Array<string | number> }> = [];
+
   // Strategy row mirrors `row` but appends inline deltas (vs Buy & Hold) on the
   // comparable columns: Final Equity, Total Return, CAGR.
-  const strategyRow: Array<string | number> = [
-    tableWhite("Strategy"),
-    tableWhite(buyCell),
-    tableWhite(sellCell),
-    tableWhite(result.initialCash.toFixed(2)),
-    tableWhite(strategySummary.finalEquity.toFixed(2)) +
-      deltaSuffix(delta.finalEquity, (n) => n.toFixed(2)),
-    colorizeSignedPercent(strategySummary.totalReturnPct) +
-      deltaSuffix(delta.totalReturnPct, (n) => `${n.toFixed(2)}%`),
-    colorizeSignedPercent(strategySummary.cagrPct) +
-      deltaSuffix(delta.cagrPct, (n) => `${n.toFixed(2)}%`),
-    tableWhite(`${strategySummary.maxDrawdownPct.toFixed(2)}%`),
-    tableWhite(strategySummary.tradeCount.toString()),
-    tableWhite(`${strategySummary.winRatePct.toFixed(2)}%`)
-  ];
+  sortableRows.push({
+    totalReturnPct: strategySummary.totalReturnPct,
+    cells: [
+      tableWhite("Strategy"),
+      tableWhite(buyCell),
+      tableWhite(sellCell),
+      tableWhite(result.initialCash.toFixed(2)),
+      tableWhite(strategySummary.finalEquity.toFixed(2)) +
+        deltaSuffix(delta.finalEquity, (n) => n.toFixed(2)),
+      colorizeSignedPercent(strategySummary.totalReturnPct) +
+        deltaSuffix(delta.totalReturnPct, (n) => `${n.toFixed(2)}%`),
+      colorizeSignedPercent(strategySummary.cagrPct) +
+        deltaSuffix(delta.cagrPct, (n) => `${n.toFixed(2)}%`),
+      tableWhite(`${strategySummary.maxDrawdownPct.toFixed(2)}%`),
+      tableWhite(strategySummary.tradeCount.toString()),
+      tableWhite(`${strategySummary.winRatePct.toFixed(2)}%`)
+    ]
+  });
 
   const perfTable = new Table({
     head: [
@@ -234,10 +241,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
   });
 
-  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true), strategyRow);
-
-  // Optimizer rows: best single buy/sell pair per objective, appended below Strategy.
-  // Each mirrors the Strategy row's inline deltas (vs Buy & Hold).
+  // Optimizer rows: best single buy/sell pair per objective. Each mirrors the
+  // Strategy row's inline deltas (vs Buy & Hold).
   const optimization = displayContext?.optimization;
   if (optimization && optimization.results.length > 0) {
     const baseline = result.comparison.buyAndHold;
@@ -257,8 +262,19 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       tableWhite(`${best.winRatePct.toFixed(2)}%`)
     ];
     for (const objective of optimization.results) {
-      perfTable.push(optRow(objective.label, objective.best));
+      sortableRows.push({
+        totalReturnPct: objective.best.totalReturnPct,
+        cells: optRow(objective.label, objective.best)
+      });
     }
+  }
+
+  // Buy & Hold stays pinned at the top; all other rows are sorted by total return
+  // (descending). Stable for equal returns (preserves Strategy-first, then objective order).
+  sortableRows.sort((a, b) => b.totalReturnPct - a.totalReturnPct);
+  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true));
+  for (const sortableRow of sortableRows) {
+    perfTable.push(sortableRow.cells);
   }
 
   const graphWidth = resolveGraphWidth(process.stdout.columns);
