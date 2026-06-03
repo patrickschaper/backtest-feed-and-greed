@@ -1,20 +1,31 @@
 export type StrategySignal = "buy" | "sell" | "hold";
 
 export interface ThresholdConfig {
-  buyThreshold: number;
-  sellThreshold: number;
+  buyThresholds: number[];
+  sellThresholds: number[];
+}
+
+export interface StrategyDecision {
+  action: StrategySignal;
+  fraction: number;
 }
 
 export function signalFromFearGreed(
   previousValue: number,
   currentValue: number,
   config: ThresholdConfig
-): StrategySignal {
-  if (previousValue < config.buyThreshold && currentValue > config.buyThreshold) {
-    return "buy";
+): StrategyDecision {
+  const buyCount = config.buyThresholds.filter((t) => previousValue < t && currentValue > t).length;
+  if (buyCount > 0) {
+    return { action: "buy", fraction: buyCount / config.buyThresholds.length };
   }
-  if (previousValue > config.sellThreshold && currentValue < config.sellThreshold) {
-    return "sell";
+
+  const sellCount = config.sellThresholds.filter(
+    (t) => previousValue > t && currentValue < t
+  ).length;
+  if (sellCount > 0) {
+    return { action: "sell", fraction: sellCount / config.sellThresholds.length };
   }
-  return "hold";
+
+  return { action: "hold", fraction: 0 };
 }

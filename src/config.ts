@@ -8,8 +8,8 @@ export interface CliConfig {
   symbol?: string;
   periodDays?: number;
   priceProvider: PriceMode;
-  buyThreshold: number;
-  sellThreshold: number;
+  buyThresholds: number[];
+  sellThresholds: number[];
   initialCash: number;
   verbose: boolean;
 }
@@ -33,6 +33,22 @@ function parseOptionalNumber(value: string | undefined, name: string): number | 
     throw new Error(`${name} must be a number`);
   }
   return parsed;
+}
+
+function parseThresholds(
+  value: string | undefined,
+  name: string,
+  defaultValue: number[]
+): number[] {
+  if (value === undefined) return defaultValue;
+  const parts = value.split(",");
+  return parts.map((p, i) => {
+    const n = Number(p.trim());
+    if (Number.isNaN(n)) {
+      throw new Error(`${name} value at position ${i + 1} is not a number`);
+    }
+    return n;
+  });
 }
 
 function startOfUtcDay(date: Date): number {
@@ -133,8 +149,16 @@ export function buildProgram(): Command {
       "Price provider: yahoo | tradingview | hybrid (tries tradingview then yahoo)",
       "hybrid"
     )
-    .option("--buy-threshold <value>", "Buy threshold (0-100)", "55")
-    .option("--sell-threshold <value>", "Sell threshold (0-100)", "45")
+    .option(
+      "--buy-threshold <values>",
+      "Buy threshold(s) (0-100), comma-separated for multiple",
+      "55"
+    )
+    .option(
+      "--sell-threshold <values>",
+      "Sell threshold(s) (0-100), comma-separated for multiple",
+      "45"
+    )
     .option("--initial-cash <value>", "Initial portfolio cash", "10000")
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
@@ -149,15 +173,19 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     throw new Error("--price-provider must be one of: yahoo, tradingview, hybrid");
   }
 
-  const buyThreshold = parseOptionalNumber(options.buyThreshold, "--buy-threshold") ?? 55;
-  const sellThreshold = parseOptionalNumber(options.sellThreshold, "--sell-threshold") ?? 45;
+  const buyThresholds = parseThresholds(options.buyThreshold, "--buy-threshold", [55]);
+  const sellThresholds = parseThresholds(options.sellThreshold, "--sell-threshold", [45]);
   const initialCash = parseOptionalNumber(options.initialCash, "--initial-cash") ?? 10_000;
 
-  if (buyThreshold < 0 || buyThreshold > 100) {
-    throw new Error("--buy-threshold must be between 0 and 100");
+  for (const t of buyThresholds) {
+    if (t < 0 || t > 100) {
+      throw new Error("--buy-threshold values must be between 0 and 100");
+    }
   }
-  if (sellThreshold < 0 || sellThreshold > 100) {
-    throw new Error("--sell-threshold must be between 0 and 100");
+  for (const t of sellThresholds) {
+    if (t < 0 || t > 100) {
+      throw new Error("--sell-threshold values must be between 0 and 100");
+    }
   }
   if (initialCash <= 0) {
     throw new Error("--initial-cash must be greater than 0");
@@ -172,8 +200,8 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     symbol: normalizedSymbol,
     periodDays,
     priceProvider: options.priceProvider as PriceMode,
-    buyThreshold,
-    sellThreshold,
+    buyThresholds,
+    sellThresholds,
     initialCash,
     verbose: Boolean(options.verbose)
   };

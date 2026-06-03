@@ -8,14 +8,36 @@ describe("parseCliConfig", () => {
   it("defaults to 1 year and threshold defaults", () => {
     const config = parse(["node", "cli"]);
     expect(config.periodDays).toBe(365);
-    expect(config.buyThreshold).toBe(55);
-    expect(config.sellThreshold).toBe(45);
+    expect(config.buyThresholds).toEqual([55]);
+    expect(config.sellThresholds).toEqual([45]);
   });
 
-  it("allows buy threshold to be lower than sell threshold", () => {
-    const config = parse(["node", "cli", "--buy-threshold", "40", "--sell-threshold", "45"]);
-    expect(config.buyThreshold).toBe(40);
-    expect(config.sellThreshold).toBe(45);
+  it("parses a single threshold value", () => {
+    const config = parse(["node", "cli", "--buy-threshold", "40", "--sell-threshold", "60"]);
+    expect(config.buyThresholds).toEqual([40]);
+    expect(config.sellThresholds).toEqual([60]);
+  });
+
+  it("parses comma-separated buy thresholds", () => {
+    const config = parse(["node", "cli", "--buy-threshold", "30,45,55"]);
+    expect(config.buyThresholds).toEqual([30, 45, 55]);
+  });
+
+  it("parses comma-separated sell thresholds", () => {
+    const config = parse(["node", "cli", "--sell-threshold", "70,60,50"]);
+    expect(config.sellThresholds).toEqual([70, 60, 50]);
+  });
+
+  it("rejects out-of-range buy threshold", () => {
+    expect(() => parse(["node", "cli", "--buy-threshold", "101"])).toThrow(
+      "--buy-threshold values must be between 0 and 100"
+    );
+  });
+
+  it("rejects out-of-range sell threshold in multi-value list", () => {
+    expect(() => parse(["node", "cli", "--sell-threshold", "50,-5"])).toThrow(
+      "--sell-threshold values must be between 0 and 100"
+    );
   });
 
   it("switches to single mode when symbol is provided", () => {

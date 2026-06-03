@@ -4,19 +4,60 @@ import { signalFromFearGreed } from "../src/backtest/strategy.js";
 
 describe("signalFromFearGreed", () => {
   it("returns buy only on strict upward crossing of buy threshold", () => {
-    expect(signalFromFearGreed(54, 56, { buyThreshold: 55, sellThreshold: 45 })).toBe("buy");
-    expect(signalFromFearGreed(55, 56, { buyThreshold: 55, sellThreshold: 45 })).toBe("hold");
-    expect(signalFromFearGreed(54, 55, { buyThreshold: 55, sellThreshold: 45 })).toBe("hold");
+    expect(signalFromFearGreed(54, 56, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "buy",
+      fraction: 1
+    });
+    expect(signalFromFearGreed(55, 56, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "hold",
+      fraction: 0
+    });
+    expect(signalFromFearGreed(54, 55, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "hold",
+      fraction: 0
+    });
   });
 
   it("returns sell only on strict downward crossing of sell threshold", () => {
-    expect(signalFromFearGreed(46, 44, { buyThreshold: 55, sellThreshold: 45 })).toBe("sell");
-    expect(signalFromFearGreed(45, 44, { buyThreshold: 55, sellThreshold: 45 })).toBe("hold");
-    expect(signalFromFearGreed(46, 45, { buyThreshold: 55, sellThreshold: 45 })).toBe("hold");
+    expect(signalFromFearGreed(46, 44, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "sell",
+      fraction: 1
+    });
+    expect(signalFromFearGreed(45, 44, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "hold",
+      fraction: 0
+    });
+    expect(signalFromFearGreed(46, 45, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "hold",
+      fraction: 0
+    });
   });
 
   it("returns hold when there is no strict crossing", () => {
-    expect(signalFromFearGreed(50, 52, { buyThreshold: 55, sellThreshold: 45 })).toBe("hold");
+    expect(signalFromFearGreed(50, 52, { buyThresholds: [55], sellThresholds: [45] })).toEqual({
+      action: "hold",
+      fraction: 0
+    });
+  });
+
+  it("returns partial buy fraction when 2 of 3 buy thresholds are crossed", () => {
+    // prev=40, curr=56: crosses 45 and 55 but not 70
+    expect(
+      signalFromFearGreed(40, 56, { buyThresholds: [45, 55, 70], sellThresholds: [30] })
+    ).toEqual({ action: "buy", fraction: 2 / 3 });
+  });
+
+  it("returns partial sell fraction when 2 of 3 sell thresholds are crossed", () => {
+    // prev=70, curr=44: crosses 65 and 50 but not 30
+    expect(
+      signalFromFearGreed(70, 44, { buyThresholds: [80], sellThresholds: [65, 50, 30] })
+    ).toEqual({ action: "sell", fraction: 2 / 3 });
+  });
+
+  it("returns fraction=1 when all thresholds are crossed in one move", () => {
+    expect(
+      signalFromFearGreed(20, 80, { buyThresholds: [30, 45, 55], sellThresholds: [60] })
+    ).toEqual({ action: "buy", fraction: 1 });
   });
 });
 
@@ -30,8 +71,8 @@ describe("runBacktest comparison output", () => {
 
     const result = runBacktest(timeline, {
       mode: "single",
-      buyThreshold: 55,
-      sellThreshold: 45,
+      buyThresholds: [55],
+      sellThresholds: [45],
       initialCash: 10_000,
       symbolWeights: { AAPL: 1 }
     });
@@ -58,8 +99,8 @@ describe("runBacktest comparison output", () => {
 
     const result = runBacktest(timeline, {
       mode: "single",
-      buyThreshold: 55,
-      sellThreshold: 45,
+      buyThresholds: [55],
+      sellThresholds: [45],
       initialCash: 10_000,
       symbolWeights: { AAPL: 1 }
     });

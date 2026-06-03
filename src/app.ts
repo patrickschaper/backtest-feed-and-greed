@@ -454,8 +454,8 @@ export async function run(argv: string[]): Promise<void> {
 
     const result = runBacktest(timeline, {
       mode: cli.mode,
-      buyThreshold: cli.buyThreshold,
-      sellThreshold: cli.sellThreshold,
+      buyThresholds: cli.buyThresholds,
+      sellThresholds: cli.sellThresholds,
       initialCash: cli.initialCash,
       symbolWeights: normalizedWeightObj
     });

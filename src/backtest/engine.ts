@@ -9,10 +9,14 @@ import type {
 
 export interface EngineConfig {
   mode: BacktestMode;
-  buyThreshold: number;
-  sellThreshold: number;
+  buyThresholds: number[];
+  sellThresholds: number[];
   initialCash: number;
   symbolWeights: Record<string, number>;
+}
+
+function hasHoldings(holdings: Record<string, number>): boolean {
+  return Object.values(holdings).some((shares) => shares > 0);
 }
 
 function round2(value: number): number {
@@ -175,42 +179,44 @@ export function runBacktest(timeline: TimelinePoint[], config: EngineConfig): Ba
     equityCurve.push({ date: day.date, equity: round2(equityToday) });
     fearGreedSeries.push(day.fearGreed);
 
-    const signal = signalFromFearGreed(previousDay.fearGreed, day.fearGreed, {
-      buyThreshold: config.buyThreshold,
-      sellThreshold: config.sellThreshold
+    const decision = signalFromFearGreed(previousDay.fearGreed, day.fearGreed, {
+      buyThresholds: config.buyThresholds,
+      sellThresholds: config.sellThresholds
     });
 
-    if (signal === "buy" && cash > 0) {
+    if (decision.action === "buy" && cash > 0) {
+      const budgetToSpend = cash * decision.fraction;
       for (const [symbol, weight] of Object.entries(config.symbolWeights)) {
         const nextPrice = nextDay.prices[symbol];
         if (!nextPrice || nextPrice <= 0) {
           throw new Error(`Missing next-day price for ${symbol} on ${nextDay.date}`);
         }
-        const budget = cash * weight;
+        const budget = budgetToSpend * weight;
         holdings[symbol] = (holdings[symbol] ?? 0) + budget / nextPrice;
       }
-      cash = 0;
+      cash -= budgetToSpend;
       const equityAfterTrade = computeEquity(holdings, cash, nextDay.prices);
       trades.push({
         date: nextDay.date,
         action: "buy",
         equityAfterTrade: round2(equityAfterTrade)
       });
-    } else if (signal === "sell" && cash === 0) {
+    } else if (decision.action === "sell" && hasHoldings(holdings)) {
       let liquidation = 0;
       for (const [symbol, shares] of Object.entries(holdings)) {
         const nextPrice = nextDay.prices[symbol];
         if (!nextPrice || nextPrice <= 0) {
           throw new Error(`Missing next-day price for ${symbol} on ${nextDay.date}`);
         }
-        liquidation += shares * nextPrice;
-        holdings[symbol] = 0;
+        const sharesToSell = shares * decision.fraction;
+        liquidation += sharesToSell * nextPrice;
+        holdings[symbol] = shares - sharesToSell;
       }
       cash += liquidation;
       trades.push({
         date: nextDay.date,
         action: "sell",
-        equityAfterTrade: round2(cash)
+        equityAfterTrade: round2(computeEquity(holdings, cash, nextDay.prices))
       });
     }
   }
@@ -220,7 +226,7 @@ export function runBacktest(timeline: TimelinePoint[], config: EngineConfig): Ba
   equityCurve.push({ date: lastDay.date, equity: finalEquity });
   fearGreedSeries.push(lastDay.fearGreed);
 
-  if (cash === 0) {
+  if (hasHoldings(holdings)) {
     let liquidation = 0;
     for (const [symbol, shares] of Object.entries(holdings)) {
       const price = lastDay.prices[symbol];
