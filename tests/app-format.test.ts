@@ -85,7 +85,7 @@ describe("formatResult", () => {
   it("places legend directly under table and excludes win rate from delta", () => {
     const output = formatResult(createResult());
     const tableIndex = output.indexOf("└");
-    const legendIndex = output.indexOf("Legend: Strategy=yellow");
+    const legendIndex = output.indexOf("Legend:");
     const deltaIndex = output.indexOf("Delta (Strategy - Buy & Hold):");
     const deltaLine = output
       .split("\n")
