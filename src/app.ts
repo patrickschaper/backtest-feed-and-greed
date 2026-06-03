@@ -337,27 +337,42 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         "Exchange",
         "Currency",
         "Source",
-        "Start Price",
-        "Capital",
         "Weight",
-        "End Price"
+        "Start Capital",
+        "Start Price",
+        "End Price",
+        "Gain/Loss",
+        "End Capital"
       ],
-      colAligns: ["left", "left", "left", "left", "left", "right", "right", "right", "right"],
+      colAligns: [
+        "left",
+        "left",
+        "left",
+        "left",
+        "left",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right",
+        "right"
+      ],
       style: { head: [], border: [] }
     });
-    // End price cell shows the close with its gain/loss vs. start in brackets; only the
-    // percentage is green/red, the surrounding brackets keep the default color.
-    const endPriceCell = (startPrice: number, endPrice: number): string => {
+    // Gain/Loss is the percentage change from start to end price, colored green/red by sign.
+    const gainLossCell = (startPrice: number, endPrice: number): string => {
       const gainLossPct = startPrice > 0 ? ((endPrice - startPrice) / startPrice) * 100 : 0;
       const pctText = `${gainLossPct > 0 ? "+" : ""}${gainLossPct.toFixed(2)}%`;
-      const coloredPct =
-        gainLossPct > 0
-          ? colorize(pctText, "32")
-          : gainLossPct < 0
-            ? colorize(pctText, NEGATIVE_COLOR)
-            : pctText;
-      return `${endPrice.toFixed(2)} (${coloredPct})`;
+      if (gainLossPct > 0) {
+        return colorize(pctText, "32");
+      }
+      if (gainLossPct < 0) {
+        return colorize(pctText, NEGATIVE_COLOR);
+      }
+      return pctText;
     };
+    const endCapital = (info: SymbolInfo): number =>
+      info.startPrice > 0 ? info.capitalAllocated * (info.endPrice / info.startPrice) : 0;
     for (const info of displayContext.symbolInfos) {
       symTable.push([
         info.symbol,
@@ -365,10 +380,12 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         info.exchange,
         info.currency,
         info.source,
-        info.startPrice.toFixed(2),
-        info.capitalAllocated.toFixed(2),
         `${info.capitalWeightPct.toFixed(1)}%`,
-        endPriceCell(info.startPrice, info.endPrice)
+        info.capitalAllocated.toFixed(2),
+        info.startPrice.toFixed(2),
+        info.endPrice.toFixed(2),
+        gainLossCell(info.startPrice, info.endPrice),
+        endCapital(info).toFixed(2)
       ]);
     }
     const totalCapital = displayContext.symbolInfos.reduce(
@@ -379,16 +396,31 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       (sum, info) => sum + info.capitalWeightPct,
       0
     );
+    const totalEndCapital = displayContext.symbolInfos.reduce(
+      (sum, info) => sum + endCapital(info),
+      0
+    );
+    const totalGainLossPct =
+      totalCapital > 0 ? ((totalEndCapital - totalCapital) / totalCapital) * 100 : 0;
+    const totalGainLossText = `${totalGainLossPct > 0 ? "+" : ""}${totalGainLossPct.toFixed(2)}%`;
+    const totalGainLossCell =
+      totalGainLossPct > 0
+        ? colorize(totalGainLossText, "32")
+        : totalGainLossPct < 0
+          ? colorize(totalGainLossText, NEGATIVE_COLOR)
+          : totalGainLossText;
     symTable.push([
       "Total",
       "",
       "",
       "",
       "",
-      "",
-      totalCapital.toFixed(2),
       `${totalWeightPct.toFixed(1)}%`,
-      ""
+      totalCapital.toFixed(2),
+      "",
+      "",
+      totalGainLossCell,
+      totalEndCapital.toFixed(2)
     ]);
     symbolTableBlock = ["", "Holdings", symTable.toString()].join("\n");
   }
