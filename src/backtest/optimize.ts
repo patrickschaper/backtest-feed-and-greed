@@ -358,7 +358,10 @@ function detectWorkerCount(): number {
   } catch {
     cores = 1;
   }
-  return Number.isFinite(cores) && cores > 0 ? Math.floor(cores) : 1;
+  const total = Number.isFinite(cores) && cores > 0 ? Math.floor(cores) : 1;
+  // Leave one core free so the main thread can keep rendering the progress
+  // spinner and the system stays responsive under a heavy optimization run.
+  return Math.max(1, total - 1);
 }
 
 /** Splits [start, end] into at most `parts` contiguous, near-equal integer ranges. */
@@ -706,7 +709,7 @@ function runSubsetsSync(
   const buySubsets = [...subsets(levels, 1, 3)];
   const sellSubsets = [...subsets(levels, 1, 3)];
   const total = buySubsets.length * sellSubsets.length;
-  const step = Math.max(1, Math.floor(total / 100));
+  const step = Math.max(1, Math.min(Math.floor(total / 100), 20_000));
   const tracker = new BestTracker();
   let done = 0;
   for (const buy of buySubsets) {

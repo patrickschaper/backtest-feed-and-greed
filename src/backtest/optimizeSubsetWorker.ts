@@ -19,7 +19,10 @@ const { timeline, config, levels, buySubsets } = workerData as SubsetWorkerData;
 
 const sellSubsets = [...subsets(levels, 1, 3)];
 const total = buySubsets.length * sellSubsets.length;
-const step = Math.max(1, Math.floor(total / 100));
+// Post progress at least every 1% but no less often than every 20k evaluations, so
+// huge searches (e.g. `full`) still surface frequent updates instead of appearing
+// frozen for tens of millions of backtests between posts.
+const step = Math.max(1, Math.min(Math.floor(total / 100), 20_000));
 const tracker = new BestTracker();
 
 let done = 0;
