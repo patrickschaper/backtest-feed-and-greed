@@ -40,10 +40,21 @@ describe("parseCliConfig", () => {
     );
   });
 
-  it("switches to single mode when symbol is provided", () => {
+  it("switches to symbols mode when symbol is provided", () => {
     const config = parse(["node", "cli", "--symbol", "aapl"]);
-    expect(config.mode).toBe("single");
-    expect(config.symbol).toBe("AAPL");
+    expect(config.mode).toBe("symbols");
+    expect(config.symbols).toEqual(["AAPL"]);
+  });
+
+  it("parses comma-separated symbols", () => {
+    const config = parse(["node", "cli", "--symbol", "aapl,msft,tsla"]);
+    expect(config.mode).toBe("symbols");
+    expect(config.symbols).toEqual(["AAPL", "MSFT", "TSLA"]);
+  });
+
+  it("trims whitespace in symbol list", () => {
+    const config = parse(["node", "cli", "--symbol", " aapl , msft "]);
+    expect(config.symbols).toEqual(["AAPL", "MSFT"]);
   });
 
   it("parses verbose flag", () => {

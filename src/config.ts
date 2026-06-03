@@ -5,7 +5,7 @@ export type { PriceMode };
 
 export interface CliConfig {
   mode: BacktestMode;
-  symbol?: string;
+  symbols?: string[];
   periodDays?: number;
   priceProvider: PriceMode;
   buyThresholds: number[];
@@ -49,6 +49,14 @@ function parseThresholds(
     }
     return n;
   });
+}
+
+function parseSymbols(value: string | undefined): string[] | undefined {
+  if (value === undefined) return undefined;
+  return value
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0);
 }
 
 function startOfUtcDay(date: Date): number {
@@ -138,7 +146,10 @@ export function buildProgram(): Command {
   program
     .name("backtest-feed-and-greed")
     .description("Backtest a Fear & Greed-driven strategy for Trading212 portfolio or a symbol")
-    .option("--symbol <symbol>", "Stock ticker (sets single-symbol mode automatically)")
+    .option(
+      "--symbol <symbols>",
+      "Stock ticker(s), comma-separated (e.g. AAPL,MSFT,TSLA); sets symbol mode automatically"
+    )
     .option(
       "--time <time>",
       "Backtest time range (e.g., 365, 7d, 52w, 2m, 2y; calendar-based)",
@@ -192,12 +203,12 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
   }
 
   const periodDays = normalizePeriod(options, referenceDate);
-  const normalizedSymbol = options.symbol?.trim().toUpperCase();
-  const mode: BacktestMode = normalizedSymbol ? "single" : "portfolio";
+  const symbols = parseSymbols(options.symbol);
+  const mode: BacktestMode = symbols?.length ? "symbols" : "portfolio";
 
   return {
     mode,
-    symbol: normalizedSymbol,
+    symbols,
     periodDays,
     priceProvider: options.priceProvider as PriceMode,
     buyThresholds,

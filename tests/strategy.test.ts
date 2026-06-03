@@ -70,7 +70,7 @@ describe("runBacktest comparison output", () => {
     ];
 
     const result = runBacktest(timeline, {
-      mode: "single",
+      mode: "symbols",
       buyThresholds: [55],
       sellThresholds: [45],
       initialCash: 10_000,
@@ -98,7 +98,7 @@ describe("runBacktest comparison output", () => {
     ];
 
     const result = runBacktest(timeline, {
-      mode: "single",
+      mode: "symbols",
       buyThresholds: [55],
       sellThresholds: [45],
       initialCash: 10_000,

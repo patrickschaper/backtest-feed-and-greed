@@ -323,29 +323,30 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
 }
 
 function resolveSymbolsAndWeights(
-  mode: "portfolio" | "single",
-  symbol?: string,
+  mode: "portfolio" | "symbols",
+  symbols?: string[],
   holdings?: PieHolding[]
 ) {
-  if (mode === "single") {
-    if (!symbol) {
-      throw new Error("Single mode requires --symbol");
+  if (mode === "symbols") {
+    if (!symbols || symbols.length === 0) {
+      throw new Error("Symbol mode requires at least one --symbol value");
     }
-    return {
-      symbols: [symbol],
-      weights: { [symbol]: 1 }
-    };
+    const weights: Record<string, number> = {};
+    for (const sym of symbols) {
+      weights[sym] = 1;
+    }
+    return { symbols, weights };
   }
 
   if (!holdings || holdings.length === 0) {
     throw new Error("Portfolio mode requires holdings from Trading212");
   }
-  const symbols = holdings.map((item) => item.symbol);
+  const portfolioSymbols = holdings.map((item) => item.symbol);
   const weights: Record<string, number> = {};
   for (const item of holdings) {
     weights[item.symbol] = 1; // equal weighting — normalization happens downstream
   }
-  return { symbols, weights };
+  return { symbols: portfolioSymbols, weights };
 }
 
 export async function run(argv: string[]): Promise<void> {
@@ -373,7 +374,7 @@ export async function run(argv: string[]): Promise<void> {
     }
   }
 
-  const { symbols, weights } = resolveSymbolsAndWeights(cli.mode, cli.symbol, holdings);
+  const { symbols, weights } = resolveSymbolsAndWeights(cli.mode, cli.symbols, holdings);
   logger.verbose(`Backtesting symbols: ${symbols.join(", ")}`);
 
   try {

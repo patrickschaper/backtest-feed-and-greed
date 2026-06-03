@@ -4,7 +4,7 @@ import type { BacktestResult, SymbolInfo } from "../src/types.js";
 
 function createResult(): BacktestResult {
   return {
-    mode: "single",
+    mode: "symbols",
     startDate: "2026-01-01",
     endDate: "2026-01-05",
     timelineDays: 5,

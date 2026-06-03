@@ -1,4 +1,4 @@
-export type BacktestMode = "portfolio" | "single";
+export type BacktestMode = "portfolio" | "symbols";
 export type PriceMode = "yahoo" | "tradingview" | "hybrid";
 
 export interface SymbolInfo {
