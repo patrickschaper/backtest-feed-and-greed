@@ -218,7 +218,7 @@ function appendFearGreedAxis(chartLines: string[], height: number, useColors: bo
     const fg = Math.round(100 - (rowIndex / height) * 100);
     const isLabel = fg % 25 === 0;
     const pad = " ".repeat(Math.max(0, maxVisLen - visibleLength(line)));
-    const separator = colorize(" │", "90");
+    const separator = colorize("│", "90");
     const label = isLabel ? colorize(` ${String(fg).padStart(3)}`, "90") : "";
     return `${line}${pad}${separator}${label}`;
   });
