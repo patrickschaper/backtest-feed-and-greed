@@ -295,10 +295,10 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const C_RESET = "\u001b[0m";
   const C_STRATEGY = "\u001b[33m";
   const C_BUY_AND_HOLD = "\u001b[36m";
-  const C_INDEX = "\u001b[97m";
+  const C_INDEX = "\u001b[90m";
 
   const legend = fearGreedCompressed
-    ? `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}, ${C_INDEX}Fear & Greed=white${C_RESET} (right axis 0–100). ▲=buy  ▼=sell  CAGR = Compound Annual Growth Rate.`
+    ? `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}, ${C_INDEX}Fear & Greed=grey${C_RESET} (right axis 0–100). ▲=buy  ▼=sell  CAGR = Compound Annual Growth Rate.`
     : `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}. CAGR = Compound Annual Growth Rate.`;
 
   return [
