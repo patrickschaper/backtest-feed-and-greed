@@ -83,9 +83,24 @@ export function renderTimeAxis(graph: string, dateLabels: string[]): string {
   }
 
   const graphLines = graph.split("\n");
-  const baseline = graphLines[graphLines.length - 1] ?? "";
-  const yAxisIndex = baseline.indexOf("┼");
-  const plotStart = yAxisIndex >= 0 ? Math.max(0, yAxisIndex + 1 - 6) : 0;
+
+  // Find the y-axis character (┼ or ┤) across all lines — same logic as detectPlotStart
+  let yAxisPos = -1;
+  for (const line of graphLines) {
+    const idx = line.indexOf("┼");
+    if (idx >= 0) {
+      yAxisPos = idx;
+      break;
+    }
+    const idx2 = line.indexOf("┤");
+    if (idx2 >= 0) {
+      yAxisPos = idx2;
+      break;
+    }
+  }
+
+  // plotStart = first column of the actual plot area (one right of the y-axis char)
+  const plotStart = yAxisPos >= 0 ? yAxisPos + 1 : 0;
   const width = dateLabels.length;
   const labelLen = width >= 40 ? 10 : 5;
   const formattedLabels =
@@ -95,7 +110,11 @@ export function renderTimeAxis(graph: string, dateLabels: string[]): string {
 
   const positions = computeTickPositions(width, labelLen);
 
-  const axisLine = `${" ".repeat(plotStart)}└${"─".repeat(Math.max(0, width - 1))}`;
+  // └ aligns with the y-axis char; dashes cover the full plot width (one per data point)
+  const axisLine =
+    yAxisPos >= 0
+      ? `${" ".repeat(yAxisPos)}└${"─".repeat(width)}`
+      : `└${"─".repeat(Math.max(0, width - 1))}`;
 
   const tickChars = Array.from({ length: width }, () => " ");
   for (const pos of positions) {

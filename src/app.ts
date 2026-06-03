@@ -301,8 +301,8 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const C_SELL_MARKER = "\u001b[91m"; // red
 
   const legend = fearGreedCompressed
-    ? `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}, ${C_INDEX}Fear & Greed=grey${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲=buy${C_RESET}  ${C_SELL_MARKER}▼=sell${C_RESET}  CAGR = Compound Annual Growth Rate.`
-    : `Legend: ${C_STRATEGY}Strategy=yellow${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold=cyan${C_RESET}. CAGR = Compound Annual Growth Rate.`;
+    ? `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}, ${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`
+    : `Legend: ${C_STRATEGY}Strategy${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
 
   return [
     symbolTableBlock,
@@ -312,9 +312,10 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     "",
     "Equity Curve (Strategy vs Buy & Hold)",
     framedChart,
+    legend,
     "",
     perfTable.toString(),
-    legend,
+    "CAGR = Compound Annual Growth Rate.",
     "",
     `Delta (Strategy - Buy & Hold): Final Equity ${result.comparison.delta.finalEquity.toFixed(2)}, Total Return ${colorizeDeltaPercent(result.comparison.delta.totalReturnPct)}, CAGR ${colorizeDeltaValue(result.comparison.delta.cagrPct, (n) => `${n.toFixed(2)}%`)}`
   ]

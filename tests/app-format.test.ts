@@ -82,16 +82,20 @@ describe("formatResult", () => {
     expect(output).toContain(" - ");
   });
 
-  it("places legend directly under table and excludes win rate from delta", () => {
+  it("places legend under chart (before table) and CAGR note under table", () => {
     const output = formatResult(createResult());
-    const tableIndex = output.indexOf("└");
+    const chartHeaderIndex = output.indexOf("Equity Curve (Strategy vs Buy & Hold)");
     const legendIndex = output.indexOf("Legend:");
+    const tableIndex = output.indexOf("Scenario");
+    const cagrNoteIndex = output.indexOf("CAGR = Compound Annual Growth Rate.");
     const deltaIndex = output.indexOf("Delta (Strategy - Buy & Hold):");
+    expect(legendIndex).toBeGreaterThan(chartHeaderIndex);
+    expect(legendIndex).toBeLessThan(tableIndex);
+    expect(cagrNoteIndex).toBeGreaterThan(tableIndex);
+    expect(cagrNoteIndex).toBeLessThan(deltaIndex);
     const deltaLine = output
       .split("\n")
       .find((line) => line.startsWith("Delta (Strategy - Buy & Hold):"));
-    expect(legendIndex).toBeGreaterThan(tableIndex);
-    expect(legendIndex).toBeLessThan(deltaIndex);
     expect(deltaLine).toBeDefined();
     expect(deltaLine).not.toContain("Win Rate");
   });
