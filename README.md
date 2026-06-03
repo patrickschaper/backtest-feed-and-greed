@@ -14,7 +14,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Terminal output:**
   - ASCII equity curve (strategy in yellow, buy & hold in cyan, Fear & Greed index in grey)
   - Colored legend below the chart
-  - Performance table with three rows: **Strategy**, **Buy & Hold**, and **Delta** (difference)
+  - Performance table with **Buy & Hold** (baseline) and **Strategy** rows; the Strategy row shows inline +/- deltas (colored) vs Buy & Hold on Final Equity, Total Return, and CAGR
   - CAGR note below the table
 
 ## Setup
@@ -115,9 +115,10 @@ A zero-drawdown positive-return combo is treated as ideal for the drawdown
 objectives. Score ties break deterministically by higher total return, then
 lower drawdown, then higher CAGR.
 
-Output: the equity chart and performance table feature the **combined**
-(`Return / DD × Win Rate`) best thresholds, followed by an **Optimization
-Results** table listing all four objective winners.
+Output: the equity chart and performance table feature the **given** (CLI/default)
+buy/sell thresholds, followed by an **Optimization Results** table listing all four
+objective winners. The optimization table is informational — it reports the best
+thresholds per objective without changing the featured backtest.
 
 The search runs **multi-threaded** across all CPU cores (via `worker_threads`),
 typically several times faster than single-threaded. It works on any platform and

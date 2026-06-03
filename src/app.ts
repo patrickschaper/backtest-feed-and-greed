@@ -174,7 +174,7 @@ export function formatOptimizationTable(
   return [
     `Optimization Results (exhaustive search of ${combosTested} threshold combinations)`,
     table.toString(),
-    "Featured chart above uses the 'Return / DD x Win Rate' (combined) best thresholds."
+    "Featured chart and performance table above use the given buy/sell thresholds; rows below are the optimizer's best per objective."
   ].join("\n");
 }
 
@@ -194,25 +194,14 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
     return tableWhite(text);
   };
-  const colorizeDeltaPercent = (value: number): string => {
-    const text = `${value.toFixed(2)}%`;
-    if (value > 0) {
-      return colorize(text, "32");
-    }
-    if (value < 0) {
-      return colorize(text, NEGATIVE_COLOR);
-    }
-    return text;
-  };
-  const colorizeDeltaValue = (value: number, formatter: (n: number) => string): string => {
-    const text = formatter(value);
-    if (value > 0) {
-      return colorize(text, "32");
-    }
-    if (value < 0) {
-      return colorize(text, NEGATIVE_COLOR);
-    }
-    return text;
+  // Appends a bracketed, signed, colored delta after a value (sign/color from the
+  // rounded value so a tiny negative that rounds to 0.00 renders neutral).
+  const deltaSuffix = (value: number, formatter: (n: number) => string): string => {
+    const rounded = Number(value.toFixed(2));
+    const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
+    const text = `(${sign}${formatter(Math.abs(rounded))})`;
+    const code = rounded > 0 ? "32" : rounded < 0 ? NEGATIVE_COLOR : "37";
+    return ` ${colorize(text, code)}`;
   };
   const row = (
     label: string,
@@ -238,6 +227,23 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     winRatePct: result.winRatePct
   };
 
+  const delta = result.comparison.delta;
+  // Strategy row mirrors `row` but appends inline deltas (vs Buy & Hold) on the
+  // comparable columns: Final Equity, Total Return, CAGR.
+  const strategyRow: Array<string | number> = [
+    tableWhite("Strategy"),
+    tableWhite(result.initialCash.toFixed(2)),
+    tableWhite(strategySummary.finalEquity.toFixed(2)) +
+      deltaSuffix(delta.finalEquity, (n) => n.toFixed(2)),
+    colorizeSignedPercent(strategySummary.totalReturnPct) +
+      deltaSuffix(delta.totalReturnPct, (n) => `${n.toFixed(2)}%`),
+    colorizeSignedPercent(strategySummary.cagrPct) +
+      deltaSuffix(delta.cagrPct, (n) => `${n.toFixed(2)}%`),
+    tableWhite(`${strategySummary.maxDrawdownPct.toFixed(2)}%`),
+    tableWhite(strategySummary.tradeCount.toString()),
+    tableWhite(`${strategySummary.winRatePct.toFixed(2)}%`)
+  ];
+
   const perfTable = new Table({
     head: [
       "Scenario",
@@ -256,20 +262,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
   });
 
-  perfTable.push(
-    row("Strategy", strategySummary),
-    row("Buy & Hold", result.comparison.buyAndHold, true),
-    [
-      tableWhite("Delta"),
-      tableWhite("-"),
-      colorizeDeltaValue(result.comparison.delta.finalEquity, (n) => n.toFixed(2)),
-      colorizeDeltaPercent(result.comparison.delta.totalReturnPct),
-      colorizeDeltaValue(result.comparison.delta.cagrPct, (n) => `${n.toFixed(2)}%`),
-      tableWhite("-"),
-      tableWhite("-"),
-      tableWhite("-")
-    ]
-  );
+  perfTable.push(row("Buy & Hold", result.comparison.buyAndHold, true), strategyRow);
 
   const graphWidth = resolveGraphWidth(process.stdout.columns);
   const strategySeries = compressSeriesForWidth(
@@ -528,8 +521,6 @@ export async function run(argv: string[]): Promise<void> {
     }
 
     let optimization: Optimization | undefined;
-    let buyThresholds = cli.buyThresholds;
-    let sellThresholds = cli.sellThresholds;
 
     if (cli.optimize) {
       logger.verbose("Running exhaustive threshold optimization (0-100 buy/sell)...");
@@ -539,20 +530,12 @@ export async function run(argv: string[]): Promise<void> {
         symbolWeights: normalizedWeightObj
       });
       logger.verbose(`Optimization tested ${optimization.combosTested} threshold combinations`);
-      const combinedBest = optimization.results.find((r) => r.key === "combined");
-      if (combinedBest) {
-        buyThresholds = [combinedBest.best.buyThreshold];
-        sellThresholds = [combinedBest.best.sellThreshold];
-        logger.verbose(
-          `Featuring combined-objective best thresholds: buy=${buyThresholds[0]}, sell=${sellThresholds[0]}`
-        );
-      }
     }
 
     const result = runBacktest(timeline, {
       mode: cli.mode,
-      buyThresholds,
-      sellThresholds,
+      buyThresholds: cli.buyThresholds,
+      sellThresholds: cli.sellThresholds,
       initialCash: cli.initialCash,
       symbolWeights: normalizedWeightObj
     });

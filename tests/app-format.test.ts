@@ -91,8 +91,24 @@ describe("formatResult", () => {
     expect(legendIndex).toBeGreaterThan(chartHeaderIndex);
     expect(legendIndex).toBeLessThan(tableIndex);
     expect(cagrNoteIndex).toBeGreaterThan(tableIndex);
-    // Delta row is now inside the table
-    expect(output).toContain("Delta");
+  });
+
+  it("shows Buy & Hold as the top row above Strategy and has no Delta row", () => {
+    const output = formatResult(createResult());
+    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    expect(tableSlice).not.toContain("Delta");
+    const buyHoldIndex = tableSlice.indexOf("Buy & Hold");
+    const strategyIndex = tableSlice.indexOf("Strategy");
+    expect(buyHoldIndex).toBeGreaterThan(-1);
+    expect(strategyIndex).toBeGreaterThan(-1);
+    expect(buyHoldIndex).toBeLessThan(strategyIndex);
+  });
+
+  it("appends inline signed deltas to the Strategy row", () => {
+    const output = formatResult(createResult());
+    // Fixture deltas: finalEquity 100, totalReturnPct 1, cagrPct 1
+    expect(output).toContain("(+100.00)");
+    expect(output).toContain("(+1.00%)");
   });
 
   it("renders symbol table before chart when symbolInfos provided", () => {

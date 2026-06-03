@@ -82,7 +82,7 @@ Terminal output is rendered in this order:
    - Strategy equity (yellow)
    - Buy & Hold equity (cyan)
 4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
-5. **Performance table** — three rows: `Strategy`, `Buy & Hold`, `Delta`; columns: Scenario, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate
+5. **Performance table** — two rows: `Buy & Hold` (baseline, top) and `Strategy`; columns: Scenario, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. The `Strategy` row appends an inline delta vs Buy & Hold — ` (±X)` with a +/- sign, colored green (positive) / red (negative) / neutral (zero) — on Final Equity, Total Return, and CAGR.
 6. **CAGR note** — `CAGR = Compound Annual Growth Rate.` directly below the table
 7. **Optimization table** (only with `--optimize`) — appended after the CAGR note; see below
 
@@ -99,7 +99,7 @@ Implemented in `src/backtest/optimize.ts`.
   4. `Return / DD × Win Rate` — combination of 2 and 3
 - **Gating:** when `totalReturnPct <= 0`, the score is the raw return, so the optimizer picks the "least bad" combo instead of a misleading ratio.
 - **Tie-break:** higher total return, then lower drawdown, then higher CAGR, then lower buy, then lower sell.
-- The featured chart + performance table use the **combined** (objective 4) best thresholds; the optimization table lists all four winners.
+- The featured chart + performance table use the **given** (CLI/default) buy/sell thresholds; the optimization table lists all four winners separately (informational — it does not change the featured run).
 - **Multi-threaded:** the 10,201-combo grid is split across all CPU cores via `node:worker_threads` (`src/backtest/optimizeWorker.ts`), giving a large speedup on multi-core machines. Cross-platform and any-CPU safe:
   - Core count from `os.availableParallelism()` (container-aware) with `os.cpus().length` fallback, clamped to ≥ 1.
   - The worker is loaded via a `file://` URL object (not a path string) so it resolves on Windows/macOS/Linux, in both `tsx` dev (`.ts`) and built `dist` (`.js`).
