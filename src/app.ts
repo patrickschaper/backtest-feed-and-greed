@@ -142,14 +142,15 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     }
     return tableWhite(text);
   };
-  // Appends a bracketed, signed, colored delta after a value (sign/color from the
-  // rounded value so a tiny negative that rounds to 0.00 renders neutral).
+  // Appends a bracketed, signed, colored delta after a value. Brackets stay neutral
+  // (white); the delta sign (Δ), +/- sign and number are colored from the rounded
+  // value (a tiny negative that rounds to 0.00 renders neutral).
   const deltaSuffix = (value: number, formatter: (n: number) => string): string => {
     const rounded = Number(value.toFixed(2));
     const sign = rounded > 0 ? "+" : rounded < 0 ? "-" : "";
-    const text = `(${sign}${formatter(Math.abs(rounded))})`;
+    const inner = `\u0394${sign}${formatter(Math.abs(rounded))}`;
     const code = rounded > 0 ? "32" : rounded < 0 ? NEGATIVE_COLOR : "37";
-    return ` ${colorize(text, code)}`;
+    return ` ${tableWhite("(")}${colorize(inner, code)}${tableWhite(")")}`;
   };
   const row = (
     label: string,

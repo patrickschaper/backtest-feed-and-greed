@@ -108,8 +108,8 @@ describe("formatResult", () => {
   it("appends inline signed deltas to the Strategy row", () => {
     const output = formatResult(createResult());
     // Fixture deltas: finalEquity 100, totalReturnPct 1, cagrPct 1
-    expect(output).toContain("(+100.00)");
-    expect(output).toContain("(+1.00%)");
+    expect(output).toContain("(\u0394+100.00)");
+    expect(output).toContain("(\u0394+1.00%)");
   });
 
   it("includes Buy and Sell columns and shows given thresholds on the Strategy row", () => {
@@ -237,9 +237,9 @@ describe("formatResult", () => {
     };
     // Fixture Buy & Hold: finalEquity 10300, return 3%, cagr 3%
     const output = formatResult(createResult(), { optimization });
-    expect(output).toContain("(+900.00)");
-    expect(output).toContain("(+9.00%)");
-    expect(output).toContain("(+3.00%)");
+    expect(output).toContain("(\u0394+900.00)");
+    expect(output).toContain("(\u0394+9.00%)");
+    expect(output).toContain("(\u0394+3.00%)");
   });
 
   it("renders symbol table before chart when symbolInfos provided", () => {
