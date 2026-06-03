@@ -188,9 +188,9 @@ export function buildProgram(): Command {
     .option(
       "--optimizer-strategy <strategy>",
       "Threshold search: greedy | coarse | single-expand | full",
-      "greedy"
+      "full"
     )
-    .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 to 3)", "2")
+    .option("--max-thresholds <n>", "Max thresholds per side the optimizer may use (1 to 3)", "1")
     .option("-v, --verbose", "Enable verbose output with detailed error messages", false);
   return program;
 }
@@ -208,7 +208,7 @@ export function parseCliConfig(argv: string[], referenceDate = new Date()): CliC
     throw new Error("--optimizer-strategy must be one of: greedy, coarse, single-expand, full");
   }
 
-  const maxThresholds = parseOptionalNumber(options.maxThresholds, "--max-thresholds") ?? 2;
+  const maxThresholds = parseOptionalNumber(options.maxThresholds, "--max-thresholds") ?? 1;
   if (!Number.isInteger(maxThresholds) || maxThresholds <= 0 || maxThresholds > 3) {
     throw new Error("--max-thresholds must be an integer between 1 and 3");
   }

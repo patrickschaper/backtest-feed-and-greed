@@ -7,7 +7,7 @@ TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear &
 - **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
 - **Portfolio mode** (`--portfolio`): backtests all open Trading212 holdings weighted by capital allocation (requires `TRADING212_API_TOKEN`)
 - **Multi-threshold strategy**: buy and sell at multiple Fear & Greed crossing levels (comma-separated, e.g. `--buy-threshold 55,65`)
-- **Threshold optimizer** (always on): searches sets of 1–N buy × 1–N sell thresholds (N = `--max-thresholds`, 1 to 3, default 2) for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `greedy`) — multi-threaded across CPU cores (one left free), with a live progress spinner
+- **Threshold optimizer** (always on): searches sets of 1–N buy × 1–N sell thresholds (N = `--max-thresholds`, 1 to 3, default 1) for the best under four objectives, with a selectable search strategy (`--optimizer-strategy greedy|coarse|single-expand|full`, default `full`) — multi-threaded across CPU cores (one left free), with a live progress spinner. The best optimized strategy by total return is overlaid on the equity chart in magenta.
 - Backtest time range with flexible format (e.g., `365`, `7d`, `52w`, `2m`, `2y`; default: 1 year, calendar-based)
 - Selectable price provider: `hybrid` (default, Yahoo → TradingView), `yahoo`, `tradingview`
 - ESLint + Prettier + pre-commit hook support
@@ -103,14 +103,14 @@ rather than a misleading ratio.
 
 Because the full integer 1–3 subset space is enormous (≈ 29.5 billion backtests), the
 search method is selectable via `--optimizer-strategy`, and the number of thresholds
-per side is capped via `--max-thresholds` (1 to 3, default 2):
+per side is capped via `--max-thresholds` (1 to 3, default 1):
 
-| Strategy        | What it does                                                                                            | Approx. cost |
-| --------------- | ------------------------------------------------------------------------------------------------------- | ------------ |
-| `greedy`        | **Default.** Best single buy+sell grid (10,201), then greedily add a buy or sell threshold (≤ cap each) | ~10.2k+      |
-| `single-expand` | Single-grid anchor, then one ordered pass adding more buy, then more sell thresholds (up to the cap)    | ~10.2k+      |
-| `coarse`        | Thresholds restricted to steps of 5 (21 levels); brute-force all 1–cap subsets both sides               | ~2.44M       |
-| `full`          | Integer resolution, all 1–cap subsets both sides — will not finish in practice at the max cap (warned)  | huge         |
+| Strategy        | What it does                                                                                                                                                                                      | Approx. cost                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| `full`          | **Default.** Integer resolution, all 1–cap subsets both sides (at the default cap of 1 this is the exhaustive 10,201-combo single-threshold grid; warned only when run with `--max-thresholds 3`) | 10.2k at cap 1; huge at cap 3 |
+| `greedy`        | Best single buy+sell grid (10,201), then greedily add a buy or sell threshold (≤ cap each)                                                                                                        | ~10.2k+                       |
+| `single-expand` | Single-grid anchor, then one ordered pass adding more buy, then more sell thresholds (up to the cap)                                                                                              | ~10.2k+                       |
+| `coarse`        | Thresholds restricted to steps of 5 (21 levels); brute-force all 1–cap subsets both sides                                                                                                         | ~2.44M                        |
 
 ```bash
 # Use a coarse exhaustive multi-threshold search, allowing up to 2 thresholds per side
@@ -119,8 +119,8 @@ npm run dev -- --symbols AAPL --optimizer-strategy coarse --max-thresholds 2 --t
 
 `greedy` and `single-expand` are heuristics anchored on the best single-threshold
 combo, so they can never finish worse than the single-threshold winner; `coarse` is the
-broad-search alternative. `full` is intentionally uncapped and guarded by a verbose
-warning.
+broad-search alternative. `full` at the default cap of 1 is exhaustive and instant; at
+`--max-thresholds 3` it is uncapped and guarded by a verbose warning.
 
 | Objective              | Considers           | Score (positive-return combos)                |
 | ---------------------- | ------------------- | --------------------------------------------- |

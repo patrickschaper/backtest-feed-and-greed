@@ -32,6 +32,8 @@ import { createLogger } from "./utils/logger.js";
 import { createProgressReporter } from "./progress.js";
 
 const STRATEGY_LABEL = "Manual strategy";
+const BUY_AND_HOLD_LABEL = "Buy & Hold";
+const OPTIMIZED_LABEL = "Optimized";
 
 function toDateMap<T extends { date: string }>(rows: T[]): Map<string, T> {
   const map = new Map<string, T>();
@@ -127,6 +129,7 @@ export interface DisplayContext {
   buyThresholds?: number[];
   sellThresholds?: number[];
   optimization?: Optimization;
+  optimizedEquitySeries?: number[];
 }
 
 export function formatResult(result: BacktestResult, displayContext?: DisplayContext): string {
@@ -134,7 +137,17 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const colorize = (value: string, colorCode: string): string =>
     useColors ? `\u001B[${colorCode}m${value}\u001B[0m` : value;
   const NEGATIVE_COLOR = "91";
-  const tableWhite = (value: string): string => colorize(value, "37");
+  // Strategy labels share the equity-chart series colors: Manual strategy = yellow,
+  // Buy & Hold = cyan. Other rows use the terminal's default foreground color.
+  const labelCell = (label: string): string => {
+    if (label === STRATEGY_LABEL) {
+      return colorize(label, "33");
+    }
+    if (label === BUY_AND_HOLD_LABEL) {
+      return colorize(label, "36");
+    }
+    return label;
+  };
   const colorizeSignedPercent = (value: number): string => {
     const text = `${value.toFixed(2)}%`;
     if (value > 0) {
@@ -143,7 +156,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     if (value < 0) {
       return colorize(text, NEGATIVE_COLOR);
     }
-    return tableWhite(text);
+    return text;
   };
   const row = (
     label: string,
@@ -152,16 +165,16 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     sellCell: string,
     hideWinRate: boolean = false
   ): Array<string | number> => [
-    tableWhite(label),
-    tableWhite(buyCell),
-    tableWhite(sellCell),
-    tableWhite(result.initialCash.toFixed(2)),
-    tableWhite(summary.finalEquity.toFixed(2)),
+    labelCell(label),
+    buyCell,
+    sellCell,
+    result.initialCash.toFixed(2),
+    summary.finalEquity.toFixed(2),
     colorizeSignedPercent(summary.totalReturnPct),
     colorizeSignedPercent(summary.cagrPct),
-    tableWhite(`${summary.maxDrawdownPct.toFixed(2)}%`),
-    tableWhite(summary.tradeCount.toString()),
-    hideWinRate ? tableWhite("-") : tableWhite(`${summary.winRatePct.toFixed(2)}%`)
+    `${summary.maxDrawdownPct.toFixed(2)}%`,
+    summary.tradeCount.toString(),
+    hideWinRate ? "-" : `${summary.winRatePct.toFixed(2)}%`
   ];
 
   const thresholdCell = (values?: number[]): string =>
@@ -185,29 +198,29 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   // Buy & Hold baseline row.
   sortableRows.push({
     totalReturnPct: result.comparison.buyAndHold.totalReturnPct,
-    cells: row("Buy & Hold", result.comparison.buyAndHold, "-", "-", true)
+    cells: row(BUY_AND_HOLD_LABEL, result.comparison.buyAndHold, "-", "-", true)
   });
 
   // Strategy row mirrors `row` using the given (CLI/default) buy/sell thresholds.
   sortableRows.push({
     totalReturnPct: strategySummary.totalReturnPct,
     cells: [
-      tableWhite(STRATEGY_LABEL),
-      tableWhite(buyCell),
-      tableWhite(sellCell),
-      tableWhite(result.initialCash.toFixed(2)),
-      tableWhite(strategySummary.finalEquity.toFixed(2)),
+      labelCell(STRATEGY_LABEL),
+      buyCell,
+      sellCell,
+      result.initialCash.toFixed(2),
+      strategySummary.finalEquity.toFixed(2),
       colorizeSignedPercent(strategySummary.totalReturnPct),
       colorizeSignedPercent(strategySummary.cagrPct),
-      tableWhite(`${strategySummary.maxDrawdownPct.toFixed(2)}%`),
-      tableWhite(strategySummary.tradeCount.toString()),
-      tableWhite(`${strategySummary.winRatePct.toFixed(2)}%`)
+      `${strategySummary.maxDrawdownPct.toFixed(2)}%`,
+      strategySummary.tradeCount.toString(),
+      `${strategySummary.winRatePct.toFixed(2)}%`
     ]
   });
 
   const perfTable = new Table({
     head: [
-      "Scenario",
+      "Strategy",
       "Buy",
       "Sell",
       "Start Equity",
@@ -231,30 +244,39 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       "right"
     ],
     style: {
-      head: ["white"],
-      border: ["white"]
+      head: [],
+      border: []
     }
   });
 
   // Optimizer rows: best buy/sell threshold set per objective.
   const optimization = displayContext?.optimization;
   if (optimization && optimization.results.length > 0) {
-    const optRow = (label: string, best: ComboMetrics): Array<string | number> => [
-      tableWhite(label),
-      tableWhite(thresholdCell(best.buyThresholds)),
-      tableWhite(thresholdCell(best.sellThresholds)),
-      tableWhite(result.initialCash.toFixed(2)),
-      tableWhite(best.finalEquity.toFixed(2)),
+    // The chart overlays the single best-by-total-return combo in magenta; color the
+    // matching table row's label the same way. Uses the same first-max selection as run().
+    const bestByReturn = optimization.results.reduce((best, candidate) =>
+      candidate.best.totalReturnPct > best.best.totalReturnPct ? candidate : best
+    );
+    const optRow = (
+      label: string,
+      best: ComboMetrics,
+      highlight: boolean
+    ): Array<string | number> => [
+      highlight ? colorize(label, "35") : labelCell(label),
+      thresholdCell(best.buyThresholds),
+      thresholdCell(best.sellThresholds),
+      result.initialCash.toFixed(2),
+      best.finalEquity.toFixed(2),
       colorizeSignedPercent(best.totalReturnPct),
       colorizeSignedPercent(best.cagrPct),
-      tableWhite(`${best.maxDrawdownPct.toFixed(2)}%`),
-      tableWhite(best.tradeCount.toString()),
-      tableWhite(`${best.winRatePct.toFixed(2)}%`)
+      `${best.maxDrawdownPct.toFixed(2)}%`,
+      best.tradeCount.toString(),
+      `${best.winRatePct.toFixed(2)}%`
     ];
     for (const objective of optimization.results) {
       sortableRows.push({
         totalReturnPct: objective.best.totalReturnPct,
-        cells: optRow(objective.label, objective.best)
+        cells: optRow(objective.label, objective.best, objective === bestByReturn)
       });
     }
   }
@@ -282,12 +304,17 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     result.fearGreedSeries && result.fearGreedSeries.length > 0
       ? compressSeriesForWidth(result.fearGreedSeries, graphWidth)
       : undefined;
+  const optimizedCompressed =
+    displayContext?.optimizedEquitySeries && displayContext.optimizedEquitySeries.length > 0
+      ? compressSeriesForWidth(displayContext.optimizedEquitySeries, graphWidth)
+      : undefined;
 
   const equityChart = renderEquityChart({
     strategySeries,
     buyAndHoldSeries,
     strategyDates: compressedDates,
     fearGreedSeries: fearGreedCompressed,
+    optimizedSeries: optimizedCompressed,
     useColors,
     height: GRAPH_HEIGHT
   });
@@ -316,19 +343,19 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
         "Weight"
       ],
       colAligns: ["left", "left", "left", "left", "left", "right", "right", "right", "right"],
-      style: { head: ["white"], border: ["white"] }
+      style: { head: [], border: [] }
     });
     for (const info of displayContext.symbolInfos) {
       symTable.push([
-        tableWhite(info.symbol),
+        info.symbol,
         info.name,
         info.exchange,
         info.currency,
         info.source,
-        tableWhite(info.startPrice.toFixed(2)),
-        tableWhite(info.endPrice.toFixed(2)),
-        tableWhite(info.capitalAllocated.toFixed(2)),
-        tableWhite(`${info.capitalWeightPct.toFixed(1)}%`)
+        info.startPrice.toFixed(2),
+        info.endPrice.toFixed(2),
+        info.capitalAllocated.toFixed(2),
+        `${info.capitalWeightPct.toFixed(1)}%`
       ]);
     }
     const totalCapital = displayContext.symbolInfos.reduce(
@@ -340,15 +367,15 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
       0
     );
     symTable.push([
-      tableWhite("Total"),
+      "Total",
       "",
       "",
       "",
       "",
       "",
       "",
-      tableWhite(totalCapital.toFixed(2)),
-      tableWhite(`${totalWeightPct.toFixed(1)}%`)
+      totalCapital.toFixed(2),
+      `${totalWeightPct.toFixed(1)}%`
     ]);
     symbolTableBlock = ["", "Holdings", symTable.toString()].join("\n");
   }
@@ -357,13 +384,18 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
   const C_STRATEGY = "\u001b[33m";
   const C_BUY_AND_HOLD = "\u001b[36m";
   const C_INDEX = "\u001b[90m";
+  const C_OPTIMIZED = "\u001b[35m"; // magenta
 
   const C_BUY_MARKER = "\u001b[32m"; // green
   const C_SELL_MARKER = "\u001b[91m"; // red
 
-  const legend = fearGreedCompressed
-    ? `Legend: ${C_STRATEGY}${STRATEGY_LABEL}${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}, ${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100). ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`
-    : `Legend: ${C_STRATEGY}${STRATEGY_LABEL}${C_RESET}, ${C_BUY_AND_HOLD}Buy & Hold${C_RESET}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
+  const legendSeries = [
+    optimizedCompressed ? `${C_OPTIMIZED}${OPTIMIZED_LABEL}${C_RESET}` : undefined,
+    `${C_STRATEGY}${STRATEGY_LABEL}${C_RESET}`,
+    `${C_BUY_AND_HOLD}${BUY_AND_HOLD_LABEL}${C_RESET}`,
+    fearGreedCompressed ? `${C_INDEX}Fear & Greed${C_RESET} (right axis 0–100)` : undefined
+  ].filter((entry): entry is string => entry !== undefined);
+  const legend = `Legend: ${legendSeries.join(", ")}. ${C_BUY_MARKER}▲${C_RESET}=buy  ${C_SELL_MARKER}▼${C_RESET}=sell`;
 
   const optimizerNote =
     optimization && optimization.results.length > 0
@@ -376,7 +408,7 @@ export function formatResult(result: BacktestResult, displayContext?: DisplayCon
     `Mode: ${result.mode}`,
     `Date range: ${result.startDate} -> ${result.endDate} (${result.timelineDays} trading days)`,
     "",
-    `Equity Curve (${STRATEGY_LABEL} vs Buy & Hold)`,
+    `Equity Curve (${STRATEGY_LABEL} vs ${BUY_AND_HOLD_LABEL})`,
     framedChart,
     legend,
     "",
@@ -537,9 +569,9 @@ export async function run(argv: string[]): Promise<void> {
       normalizedWeightObj[item.symbol] = item.weight / totalWeight;
     }
 
-    if (cli.optimizerStrategy === "full") {
+    if (cli.optimizerStrategy === "full" && cli.maxThresholds >= 3) {
       logger.warn(
-        "--optimizer-strategy full evaluates billions of combinations and may not finish; consider 'coarse'."
+        "--optimizer-strategy full with --max-thresholds 3 evaluates billions of combinations and may not finish; consider 'coarse' or a lower --max-thresholds."
       );
     }
     reporter.stage("Optimizing");
@@ -564,6 +596,22 @@ export async function run(argv: string[]): Promise<void> {
       symbolWeights: normalizedWeightObj
     });
 
+    // Re-run the single best-by-total-return optimized combo to obtain its equity
+    // curve, so it can be overlaid on the chart (magenta, drawn on top).
+    let optimizedEquitySeries: number[] | undefined;
+    if (optimization.results.length > 0) {
+      const bestByReturn = optimization.results.reduce((best, candidate) =>
+        candidate.best.totalReturnPct > best.best.totalReturnPct ? candidate : best
+      );
+      const optimizedResult = runBacktest(timeline, {
+        mode: cli.mode,
+        buyThresholds: bestByReturn.best.buyThresholds,
+        sellThresholds: bestByReturn.best.sellThresholds,
+        initialCash: cli.initialCash,
+        symbolWeights: normalizedWeightObj
+      });
+      optimizedEquitySeries = optimizedResult.equityCurve.map((point) => point.equity);
+    }
     // Fetch symbol metadata for the holdings table
     reporter.stage("Fetching symbol metadata");
     const firstDay = timeline[0];
@@ -604,7 +652,8 @@ export async function run(argv: string[]): Promise<void> {
         symbolInfos,
         buyThresholds: cli.buyThresholds,
         sellThresholds: cli.sellThresholds,
-        optimization
+        optimization,
+        optimizedEquitySeries
       })}\n`
     );
   } catch (error) {

@@ -10,6 +10,7 @@ const GRAPH_HORIZONTAL_PADDING = 22;
 const COLOR_STRATEGY = "\u001b[33m"; // yellow
 const COLOR_BUY_AND_HOLD = "\u001b[36m"; // cyan
 const COLOR_FEAR_AND_GREED = "\u001b[90m"; // grey
+export const COLOR_OPTIMIZED = "\u001b[35m"; // magenta
 
 export function resolveGraphWidth(terminalColumns?: number): number {
   if (!terminalColumns || terminalColumns <= 0) {
@@ -188,6 +189,7 @@ export interface EquityChartConfig {
   buyAndHoldSeries: number[];
   strategyDates: string[];
   fearGreedSeries?: number[];
+  optimizedSeries?: number[];
   useColors: boolean;
   height?: number;
 }
@@ -274,6 +276,7 @@ export function renderEquityChart(config: EquityChartConfig): string {
     strategySeries,
     buyAndHoldSeries,
     fearGreedSeries,
+    optimizedSeries,
     useColors,
     height = GRAPH_HEIGHT
   } = config;
@@ -283,13 +286,17 @@ export function renderEquityChart(config: EquityChartConfig): string {
 
   const strategy = strategySeries.slice(0, width);
   const buyAndHold = buyAndHoldSeries.slice(0, width);
+  const optimized =
+    optimizedSeries && optimizedSeries.length >= width
+      ? optimizedSeries.slice(0, width)
+      : undefined;
 
-  // Stack order: F&G index (bottom) → buy & hold (middle) → strategy (top, most visible).
+  // Stack order (bottom → top): F&G index → buy & hold → manual strategy → optimized.
   const seriesForPlot: number[][] = [];
   const colors: string[] | undefined = useColors ? [] : undefined;
 
   if (fearGreedSeries && fearGreedSeries.length >= width) {
-    const allEquity = [...strategy, ...buyAndHold];
+    const allEquity = [...strategy, ...buyAndHold, ...(optimized ?? [])];
     const eMin = Math.min(...allEquity);
     const eMax = Math.max(...allEquity);
     const normalizedFG = normalizeFearGreed(fearGreedSeries.slice(0, width), eMin, eMax);
@@ -299,6 +306,10 @@ export function renderEquityChart(config: EquityChartConfig): string {
 
   seriesForPlot.push(buyAndHold, strategy);
   colors?.push(COLOR_BUY_AND_HOLD, COLOR_STRATEGY);
+  if (optimized) {
+    seriesForPlot.push(optimized);
+    colors?.push(COLOR_OPTIMIZED);
+  }
 
   const chartStr = asciichart.plot(seriesForPlot, { height, colors });
 

@@ -67,7 +67,7 @@ describe("formatResult", () => {
     const output = formatResult(createResult());
     const graphIndex = output.indexOf("Equity Curve (Manual strategy vs Buy & Hold)");
     const timeAxisIndex = output.indexOf("01-01");
-    const tableIndex = output.indexOf("Scenario");
+    const tableIndex = output.indexOf("Strategy");
     expect(graphIndex).toBeGreaterThan(-1);
     expect(timeAxisIndex).toBeGreaterThan(-1);
     expect(tableIndex).toBeGreaterThan(-1);
@@ -87,7 +87,7 @@ describe("formatResult", () => {
     const output = formatResult(createResult());
     const chartHeaderIndex = output.indexOf("Equity Curve (Manual strategy vs Buy & Hold)");
     const legendIndex = output.indexOf("Legend:");
-    const tableIndex = output.indexOf("Scenario");
+    const tableIndex = output.indexOf("Strategy");
     const cagrNoteIndex = output.indexOf("CAGR = Compound Annual Growth Rate.");
     expect(legendIndex).toBeGreaterThan(chartHeaderIndex);
     expect(legendIndex).toBeLessThan(tableIndex);
@@ -97,7 +97,7 @@ describe("formatResult", () => {
   it("sorts all rows by total return and has no Delta row", () => {
     // Fixture: Buy & Hold return 3%, Manual strategy return 5% -> strategy sorts above.
     const output = formatResult(createResult());
-    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    const tableSlice = output.slice(output.lastIndexOf("Strategy"));
     expect(tableSlice).not.toContain("Delta");
     const buyHoldIndex = tableSlice.indexOf("Buy & Hold");
     const strategyIndex = tableSlice.indexOf("Manual strategy");
@@ -116,7 +116,7 @@ describe("formatResult", () => {
       buyThresholds: [55],
       sellThresholds: [45]
     });
-    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    const tableSlice = output.slice(output.lastIndexOf("Strategy"));
     expect(tableSlice).toContain("Buy");
     expect(tableSlice).toContain("Sell");
     // Thresholds rendered in the Strategy row
@@ -152,7 +152,7 @@ describe("formatResult", () => {
       ]
     };
     const withOpt = formatResult(createResult(), { optimization });
-    const tableSlice = withOpt.slice(withOpt.lastIndexOf("Scenario"));
+    const tableSlice = withOpt.slice(withOpt.lastIndexOf("Strategy"));
     // Fixture: Strategy return 4%, Max Return 12% -> Max Return sorts above Strategy.
     const strategyIndex = tableSlice.indexOf("Manual strategy");
     const optIndex = tableSlice.indexOf("Max Return");
@@ -203,7 +203,7 @@ describe("formatResult", () => {
       ]
     };
     const output = formatResult(createResult(), { optimization });
-    const tableSlice = output.slice(output.lastIndexOf("Scenario"));
+    const tableSlice = output.slice(output.lastIndexOf("Strategy"));
     // Descending by total return: High Opt (50%) > Strategy (4%) > Buy & Hold (3%) > Low Opt (0.5%).
     const buyHold = tableSlice.indexOf("Buy & Hold");
     const high = tableSlice.indexOf("High Opt");
@@ -308,5 +308,67 @@ describe("formatResult", () => {
     expect(output).toContain("Total");
     expect(output).toContain("10000.00");
     expect(output).toContain("100.0%");
+  });
+
+  it("colors the best-by-total-return optimizer row label magenta (matches chart series)", () => {
+    const optimization: Optimization = {
+      combosTested: 10201,
+      strategy: "full",
+      results: [
+        {
+          key: "returnWinRate",
+          label: "Low Opt",
+          considers: "win rate",
+          score: 1,
+          best: {
+            buyThresholds: [20],
+            sellThresholds: [40],
+            finalEquity: 10050,
+            totalReturnPct: 0.5,
+            cagrPct: 0.5,
+            maxDrawdownPct: 3,
+            winRatePct: 60,
+            tradeCount: 2
+          }
+        },
+        {
+          key: "return",
+          label: "High Opt",
+          considers: "return only",
+          score: 50,
+          best: {
+            buyThresholds: [25],
+            sellThresholds: [55],
+            finalEquity: 15000,
+            totalReturnPct: 50,
+            cagrPct: 20,
+            maxDrawdownPct: 10,
+            winRatePct: 80,
+            tradeCount: 5
+          }
+        }
+      ]
+    };
+    const originalIsTTY = process.stdout.isTTY;
+    const originalNoColor = process.env.NO_COLOR;
+    try {
+      Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+      delete process.env.NO_COLOR;
+      const output = formatResult(createResult(), { optimization });
+      // The highest-total-return objective is overlaid magenta on the chart, so its
+      // table label is wrapped in the magenta escape; the lower one is not.
+      expect(output).toContain("\u001b[35mHigh Opt\u001b[0m");
+      expect(output).not.toContain("\u001b[35mLow Opt\u001b[0m");
+    } finally {
+      Object.defineProperty(process.stdout, "isTTY", {
+        value: originalIsTTY,
+        configurable: true
+      });
+      if (originalNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = originalNoColor;
+      }
+    }
   });
 });

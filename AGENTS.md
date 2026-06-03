@@ -79,12 +79,13 @@ Terminal output is rendered in this order:
 
 1. **Symbol table** — ticker, name, exchange, price range, allocated capital, weight % (omitted in portfolio mode with a single implicit symbol)
 2. **Mode / date range** — `Mode: symbols | portfolio` and `Date range: YYYY-MM-DD -> YYYY-MM-DD (N trading days)`
-3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; three series:
+3. **Equity curve chart** — ASCII line chart at fixed 30-line height, terminal-width adaptive; series drawn bottom → top (later series render on top where they overlap):
    - Fear & Greed Index (grey)
-   - Manual strategy equity (yellow)
    - Buy & Hold equity (cyan)
-4. **Legend** — directly below the chart; label text is rendered in its series color; buy/sell marker glyphs (▲/▼) colored green/red
-5. **Performance table** — one unified table. Columns: Scenario, Buy, Sell, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. Rows:
+   - Manual strategy equity (yellow)
+   - Optimized equity (magenta) — the optimizer's best strategy by total return, re-run over the same timeline; only present when the optimizer produced results
+4. **Legend** — directly below the chart; label text is rendered in its series color; series listed top → bottom (`Optimized` first when present, then `Manual strategy`, `Buy & Hold`, `Fear & Greed`); buy/sell marker glyphs (▲/▼) colored green/red. The legend always renders its series colors (it does not honor `NO_COLOR`).
+5. **Performance table** — one unified table. Columns: Strategy, Buy, Sell, Start Equity, Final Equity, Total Return, CAGR, Max Drawdown, Trades, Win Rate. Cells use the terminal's default foreground color (no forced white); the first-column label is color-coded to match its chart series (`Manual strategy` = yellow, `Buy & Hold` = cyan, and the best-by-total-return optimizer row = magenta to match the chart overlay; other optimizer objective rows use the default color). Total Return/CAGR values are green/red by sign. Rows:
    - `Buy & Hold` (baseline; Buy/Sell shown as `-`)
    - `Manual strategy` (uses the given CLI/default thresholds)
    - One row per objective (always shown): `Max Return`, `Return / Drawdown`, `Return x Win Rate`, `Return / DD x Win Rate`, each showing its best Buy/Sell thresholds and metrics
@@ -96,9 +97,10 @@ Terminal output is rendered in this order:
 
 Implemented in `src/backtest/optimize.ts`. Runs on every backtest.
 
-- Searches **sets of 1–N buy thresholds × 1–N sell thresholds** (including asymmetric counts, e.g. 1 buy + 2 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays. `N` is the per-side cap, set via `--max-thresholds` (integer, `1 ≤ n ≤ 3`; default **2**). Direct callers of the optimizer that omit `maxThresholds` fall back to a cap of 3.
-- The search space is huge, so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **greedy**):
-  - **greedy** (default): evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach the cap.
+- Searches **sets of 1–N buy thresholds × 1–N sell thresholds** (including asymmetric counts, e.g. 1 buy + 2 sell) by reusing `runBacktest` with multi-element, canonical (sorted-ascending, unique) threshold arrays. `N` is the per-side cap, set via `--max-thresholds` (integer, `1 ≤ n ≤ 3`; default **1**). Direct callers of the optimizer that omit `maxThresholds` fall back to a cap of 3.
+- The search space is huge, so the method is selectable via `--optimizer-strategy <greedy|coarse|single-expand|full>` (default **full**, which at the default cap of 1 is the exhaustive 10,201-combo single-threshold grid):
+  - **full** (default): integer resolution (0–100), ALL size-1..cap buy subsets × size-1..cap sell subsets. At cap 1 this is the exhaustive 10,201-combo single-threshold grid (instant); at cap 3 it is uncapped and emitted with a verbose warning (won't finish in practice).
+  - **greedy**: evaluate the full single buy × single sell integer grid (10,201 combos) to anchor each objective's best single, then iteratively add a buy OR sell threshold (whichever improves the objective most) until no improvement or both sides reach the cap.
   - **single-expand**: same single-grid anchor, then a single ordered pass — add buy thresholds up to the cap (full 0–100 scan each), then sell thresholds up to the cap; anchor fixed.
   - **coarse**: restrict thresholds to steps of 5 (levels 0,5,…,100 = 21 values) and brute-force ALL size-1..cap buy subsets × size-1..cap sell subsets.
   - **full**: integer resolution (0–100), ALL size-1..cap subsets both sides. Implemented faithfully with a prominent verbose warning; at the max cap it will not finish in practice — exists for completeness.

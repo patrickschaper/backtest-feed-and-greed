@@ -95,9 +95,9 @@ describe("parseCliConfig", () => {
     }
   });
 
-  it("defaults optimizer strategy to greedy", () => {
+  it("defaults optimizer strategy to full", () => {
     const config = parse(["node", "cli"]);
-    expect(config.optimizerStrategy).toBe("greedy");
+    expect(config.optimizerStrategy).toBe("full");
   });
 
   it("accepts all valid optimizer strategies", () => {
@@ -113,9 +113,9 @@ describe("parseCliConfig", () => {
     );
   });
 
-  it("defaults max thresholds to 2", () => {
+  it("defaults max thresholds to 1", () => {
     const config = parse(["node", "cli"]);
-    expect(config.maxThresholds).toBe(2);
+    expect(config.maxThresholds).toBe(1);
   });
 
   it("accepts max thresholds of 1, 2 and 3", () => {
