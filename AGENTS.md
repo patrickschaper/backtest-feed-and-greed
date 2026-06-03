@@ -41,6 +41,17 @@ docs: update README with multi-threshold examples
 chore: bump vitest to v3
 ```
 
+When a commit touches multiple things, use very concise bullet points in the body:
+
+```
+feat: add Delta row and update docs
+
+- Delta is 3rd row in perf table (Final Equity, Total Return, CAGR)
+- N/A fields show -
+- Fix hybrid provider order in README
+- Add output structure section to AGENTS.md
+```
+
 ## Quality gates
 
 - Format: Prettier
