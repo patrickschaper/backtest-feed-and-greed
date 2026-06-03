@@ -68,6 +68,15 @@ function placeLabel(buffer: string[], label: string, position: number): void {
   }
 }
 
+function computeTickPositions(width: number, labelLen: number): number[] {
+  const minSpacing = labelLen + 2;
+  const maxIntervals = Math.max(2, Math.floor((width - 1) / minSpacing));
+  const intervals = Math.min(maxIntervals, 8);
+  return Array.from({ length: intervals + 1 }, (_, i) =>
+    i === intervals ? width - 1 : Math.round((i / intervals) * (width - 1))
+  );
+}
+
 export function renderTimeAxis(graph: string, dateLabels: string[]): string {
   if (!graph || dateLabels.length === 0) {
     return "";
@@ -78,27 +87,43 @@ export function renderTimeAxis(graph: string, dateLabels: string[]): string {
   const yAxisIndex = baseline.indexOf("┼");
   const plotStart = yAxisIndex >= 0 ? Math.max(0, yAxisIndex + 1 - 6) : 0;
   const width = dateLabels.length;
-  const mid = Math.floor((width - 1) / 2);
+  const labelLen = width >= 40 ? 10 : 5;
   const formattedLabels =
     width >= 40
       ? dateLabels
       : dateLabels.map((label) => (label.length >= 10 ? label.slice(5) : label));
 
+  const positions = computeTickPositions(width, labelLen);
+
   const axisLine = `${" ".repeat(plotStart)}└${"─".repeat(Math.max(0, width - 1))}`;
+
   const tickChars = Array.from({ length: width }, () => " ");
-  tickChars[0] = "┬";
-  tickChars[mid] = "┬";
-  tickChars[width - 1] = "┬";
+  for (const pos of positions) {
+    tickChars[pos] = "┬";
+  }
   const tickLine = `${" ".repeat(plotStart)}${tickChars.join("")}`;
 
   const labelChars = Array.from({ length: width }, () => " ");
-  placeLabel(labelChars, formattedLabels[0] ?? "", 0);
-  if (width >= 28) {
-    const midLabel = formattedLabels[mid] ?? "";
-    placeLabel(labelChars, midLabel, Math.max(0, mid - Math.floor(midLabel.length / 2)));
+  let nextFreePos = 0;
+  for (let i = 0; i < positions.length; i += 1) {
+    const pos = positions[i]!;
+    const label = formattedLabels[pos] ?? "";
+    let labelStart: number;
+    const isLast = i === positions.length - 1;
+    if (i === 0) {
+      labelStart = 0;
+    } else if (isLast) {
+      // Always right-align the end label; it may overlap with the previous one on tiny charts
+      labelStart = Math.max(0, width - label.length);
+    } else {
+      labelStart = Math.max(nextFreePos, pos - Math.floor(label.length / 2));
+    }
+    // Skip intermediate labels that can't fit; always write first and last
+    if (i === 0 || isLast || labelStart + label.length <= width) {
+      placeLabel(labelChars, label, labelStart);
+      nextFreePos = labelStart + label.length + 1;
+    }
   }
-  const endLabel = formattedLabels[width - 1] ?? "";
-  placeLabel(labelChars, endLabel, Math.max(0, width - endLabel.length));
   const labelLine = `${" ".repeat(plotStart)}${labelChars.join("")}`;
 
   return [axisLine, tickLine, labelLine].join("\n");
