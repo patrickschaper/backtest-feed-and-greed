@@ -1,6 +1,6 @@
 # backtest-feed-and-greed
 
-TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear & Greed index.
+TypeScript Node.js CLI for backtesting a stock strategy driven by the [CNN Fear & Greed index](https://www.cnn.com/markets/fear-and-greed).
 
 ## Example
 
