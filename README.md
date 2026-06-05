@@ -2,6 +2,10 @@
 
 TypeScript Node.js CLI for backtesting a stock strategy driven by the CNN Fear & Greed index.
 
+## Example
+
+![Backtest of the magnificent five (META, AAPL, AMZN, MSFT, GOOGL) over 1 year](assets/magnificent-five.png)
+
 ## Features
 
 - **Symbol mode** (default): one or more tickers via `--symbols AAPL` or comma-separated `--symbols AAPL,MSFT,TSLA`; defaults to `MSFT` when none are given
@@ -43,19 +47,11 @@ This application uses **read-only access** to the Trading212 API. No trade execu
 
 ### Required Permissions
 
-- ✅ View portfolio positions (GET `/equity/account/portfolio/positions`)
-
-### What This App Does NOT Access
-
-- ❌ Account balance or cash
-- ❌ Trade history
-- ❌ Execute trades or place orders
-- ❌ Modify account settings
-- ❌ Personal account information
+- ✅ View portfolio positions (GET `/api/v0/equity/positions`)
 
 ### Generating Your API Token
 
-1. Visit [Trading212 API Docs](https://www.trading212.com/api-docs)
+1. Visit [Trading212 API Docs](https://docs.trading212.com/api)
 2. Navigate to the API token section in your account settings
 3. Generate an API key and API secret pair (read-only scopes are enough for this app)
 4. Paste them into `.env` as `TRADING212_API_TOKEN=API_KEY:API_SECRET`
