@@ -58,15 +58,39 @@ This application uses **read-only access** to the Trading212 API. No trade execu
 
 These credentials are used for Basic authentication and grant read-only access to your portfolio data, making them safe to use in this backtesting flow.
 
+## Install as a global command
+
+To install `btfeargreed` as a globally available CLI command:
+
+```bash
+npm install
+npm run build
+npm install -g .
+```
+
+Then run:
+
+```bash
+btfeargreed --help
+```
+
+**Environment:** `btfeargreed` reads `.env` from your current working directory. Only `TRADING212_API_TOKEN` is required for `--portfolio` mode; symbol mode needs no credentials. Alternatively, export credentials as environment variables instead of using `.env`.
+
 ## Usage
 
-Run help:
+Run help (via development):
 
 ```bash
 npm run dev -- --help
 ```
 
-Examples:
+Or if installed globally:
+
+```bash
+btfeargreed --help
+```
+
+Examples (replace `npm run dev --` with `btfeargreed` if using the global install):
 
 ```bash
 # Default 1-year backtest (MSFT)

@@ -4,7 +4,7 @@
   "description": "CLI backtester for Fear & Greed stock strategy",
   "main": "dist/cli.js",
   "bin": {
-    "backtest-feed-and-greed": "dist/cli.js"
+    "btfeargreed": "dist/cli.js"
   },
   "scripts": {
     "dev": "tsx src/cli.ts",
@@ -15,9 +15,15 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "prepare": "husky",
+    "prepack": "npm run build",
     "check": "npm run lint && npm run test && npm run build"
   },
   "keywords": [],
+  "files": [
+    "dist",
+    "README.md",
+    ".env.example"
+  ],
   "author": "",
   "license": "MIT",
   "type": "module",
