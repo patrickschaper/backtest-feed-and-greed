@@ -17,6 +17,8 @@ coverage
 .nyc_output
 
 # IDE and Editor
+.serena/
+.projectatlas/
 .vscode
 .idea
 *.swp
@@ -43,4 +45,3 @@ lerna-debug.log*
 .eslintcache
 .npm
 .yarn
-
